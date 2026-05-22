@@ -1,0 +1,20 @@
+# 关注列表
+# 除了持仓外，额外关注的公司
+
+watchlist: []
+  # - symbol: NVDA
+  #   name: NVIDIA
+  #   market: US
+  #   reason: AI 芯片龙头，关注 AI 算力需求趋势
+  # - symbol: TSLA
+  #   name: Tesla
+  #   market: US
+  #   reason: 关注 FSD 进展和能源业务
+
+# 全球热点关注领域 (每周自动追踪)
+global_topics:
+  - AI / 人工智能
+  - 半导体 / 芯片
+  - 新能源
+  - 宏观经济 / 利率政策
+  - 地缘政治

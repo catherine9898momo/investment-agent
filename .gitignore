@@ -1,0 +1,32 @@
+# 环境与凭证
+.env
+.env.local
+
+# 数据库（含真实持仓数据）
+*.db
+*.db-shm
+*.db-wal
+
+# 虚拟环境
+venv/
+.venv/
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+
+# 运行产物
+logs/
+reports/
+
+# IDE / 工具本地配置
+.claude/settings.local.json
+
+# 本地 MCP 配置（含绝对路径）— 用 .mcp.json.example 作为公开模板
+.mcp.json
+
+# OS
+.DS_Store

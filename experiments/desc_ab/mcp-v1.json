@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "investment-memory": {
+      "type": "stdio",
+      "command": "/Users/mtdp/ai/projects/investment-agent/venv/bin/python",
+      "args": ["-m", "src.mcp_servers.memory_server"],
+      "cwd": "/Users/mtdp/ai/projects/investment-agent",
+      "env": {
+        "MEMORY_DESC_VERSION": "v1"
+      }
+    }
+  }
+}

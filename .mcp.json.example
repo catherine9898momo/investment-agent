@@ -1,0 +1,32 @@
+{
+  "_comment": "复制为 .mcp.json 并把 <PROJECT_ROOT> 替换为本仓库的绝对路径",
+  "mcpServers": {
+    "investment-memory": {
+      "type": "stdio",
+      "command": "<PROJECT_ROOT>/venv/bin/python",
+      "args": ["-m", "src.mcp_servers.memory_server"],
+      "cwd": "<PROJECT_ROOT>",
+      "env": {
+        "MEMORY_DESC_VERSION": "v1"
+      }
+    },
+    "investment-finance": {
+      "type": "stdio",
+      "command": "<PROJECT_ROOT>/venv/bin/python",
+      "args": ["-m", "src.mcp_servers.finance_server"],
+      "cwd": "<PROJECT_ROOT>"
+    },
+    "investment-news": {
+      "type": "stdio",
+      "command": "<PROJECT_ROOT>/venv/bin/python",
+      "args": ["-m", "src.mcp_servers.news_server"],
+      "cwd": "<PROJECT_ROOT>"
+    },
+    "investment-corporate-actions": {
+      "type": "stdio",
+      "command": "<PROJECT_ROOT>/venv/bin/python",
+      "args": ["-m", "src.mcp_servers.corporate_actions_server"],
+      "cwd": "<PROJECT_ROOT>"
+    }
+  }
+}

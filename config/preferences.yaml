@@ -1,0 +1,31 @@
+# 投资偏好配置
+
+# 欣赏的投资者 (Agent 会参考其思维框架进行分析)
+admired_investors: []
+  # - name: 沃伦·巴菲特
+  #   style: 价值投资，长期持有，关注护城河和管理层
+  # - name: 查理·芒格
+  #   style: 多元思维模型，逆向思考，能力圈
+  # - name: 段永平
+  #   style: 价值投资本土化实践，关注商业模式和企业文化
+
+# 投资风格
+investment_style: ""  # 例如: "偏价值投资，关注长期成长性，不做短线交易"
+
+# 风险偏好: conservative / moderate / aggressive
+risk_tolerance: moderate
+
+# 重点关注行业
+focus_sectors: []
+  # - 科技
+  # - 消费
+  # - 医疗健康
+
+# 分析语言
+analysis_language: zh
+
+# 周报生成日 (1=Monday, 7=Sunday)
+weekly_report_day: 7
+
+# 推送方式: local / email / wechat
+notification_method: local

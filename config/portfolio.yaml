@@ -1,0 +1,19 @@
+# 持仓列表
+# 格式说明:
+#   symbol: 股票代码 (美股直接写代码, A股加 .SS/.SZ 后缀, 港股加 .HK 后缀)
+#   name: 公司名称
+#   market: US / CN / HK
+#   shares: 持仓数量
+#   avg_cost: 平均成本价
+
+holdings: []
+  # - symbol: AAPL
+  #   name: Apple
+  #   market: US
+  #   shares: 100
+  #   avg_cost: 170.50
+  # - symbol: 600519.SS
+  #   name: 贵州茅台
+  #   market: CN
+  #   shares: 10
+  #   avg_cost: 1680.00
