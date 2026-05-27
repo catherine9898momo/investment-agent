@@ -176,6 +176,26 @@ pip install -e .
 2. 识别 2020-08 + 2022-08 两次拆股累计 15:1
 3. 复权后成本 $80，给出 +457% 浮盈结论
 
+### 4. 本地 CLI 连续对话
+
+如果想绕开 Claude Desktop，直接把它当一个真实可用的本地 Agent 练习，可以启动 CLI：
+
+```bash
+cd investment-agent
+source venv/bin/activate
+python -m src.agents.cli_chat
+```
+
+常用命令：
+
+```text
+/context  打印当前 context usage
+/help     查看命令
+/exit     退出
+```
+
+建议先连续问 5-10 个真实问题，观察每轮的 tool_use、tool_result、cost 和 context token 分布。这个入口用于把 W5 context engineering 从“为了实验而实验”拉回真实使用场景。
+
 ---
 
 ## 设计文档

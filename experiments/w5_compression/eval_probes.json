@@ -1,0 +1,80 @@
+{
+  "_meta": {
+    "purpose": "W5 上下文压缩 4 策略 ablation 的固定评估题集",
+    "frozen_at": "2026-05-25",
+    "frozen_before_treatment": true,
+    "rationale": [
+      "预注册原则（pre-registration）：评估题在 S0/S_A/S_B/S_C 跑之前 commit，避免'跑完挑题'的 p-hacking",
+      "固定 probe 与对话历史无关：自然对话评分会被前轮错位污染（S_A 因为压缩丢了 TSLA 成本 → 后续问'基于 80 美元'就脱节）",
+      "probe 注入优先级最高：QuestionSource.get() 在 probe_at_rounds 命中时直接返回 probe 文本，绕过 synthetic_user / replay"
+    ],
+    "scoring_principle": "硬指标用数值/字符串匹配 + ground truth；不用 LLM-as-judge 避免引入新随机性",
+    "ground_truth_source": "synthetic_user.PORTFOLIO_CONTEXT + 拆股累计因子（TSLA 15:1, NVDA 40:1）"
+  },
+  "probes": [
+    {
+      "round": 10,
+      "id": "R10_single_fact",
+      "type": "single_fact_numeric",
+      "question": "我 TSLA 的复权后单股成本是多少？直接给数字。",
+      "expected": {
+        "value": 80.0,
+        "unit": "USD",
+        "derivation": "1200 / 15 (2020-08 5:1 拆 × 2022-08 3:1 拆 = 15:1)"
+      },
+      "scoring": {
+        "method": "numeric_match",
+        "tolerance_usd": 2.0,
+        "score_if_pass": 1.0,
+        "score_if_fail": 0.0
+      }
+    },
+    {
+      "round": 20,
+      "id": "R20_multi_fact",
+      "type": "multi_fact_table",
+      "question": "把我所有 5 只持仓的复权后成本（美股按拆股因子算）+ 持仓数量列成一张表。",
+      "expected": {
+        "rows": [
+          {"symbol": "TSLA", "adj_cost": 80.0, "shares": 1000, "cost_basis_raw": 1200, "split_factor": 15},
+          {"symbol": "NVDA", "adj_cost": 1.0, "shares": 200,  "cost_basis_raw": 40,   "split_factor": 40},
+          {"symbol": "AAPL", "adj_cost": 150.0, "shares": 500, "cost_basis_raw": 150, "split_factor": 1, "note": "无拆股 / 简化"},
+          {"symbol": "09988.HK", "adj_cost": 280.0, "shares": 100, "cost_basis_raw": 280, "split_factor": 1},
+          {"symbol": "600519.SS", "adj_cost": 1680.0, "shares": 10, "cost_basis_raw": 1680, "split_factor": 1, "currency": "CNY"}
+        ]
+      },
+      "scoring": {
+        "method": "row_coverage",
+        "score_per_row_correct": 0.2,
+        "max_score": 1.0,
+        "row_correct_if": "symbol 出现 AND (adj_cost ±5%) AND shares 数值匹配"
+      }
+    },
+    {
+      "round": 30,
+      "id": "R30_synthesis",
+      "type": "synthesis_with_recall",
+      "question": "回顾我所有持仓的成本和复权因子，如果我现在要减仓一只，该减哪只？给出依据，要提到具体股票和具体数字。",
+      "expected": {
+        "must_mention_symbols": ["TSLA", "NVDA", "AAPL", "09988.HK", "600519.SS"],
+        "must_mention_facts": [
+          "TSLA 拆股 15:1 或复权成本 $80",
+          "NVDA 拆股 40:1 或复权成本 $1",
+          "至少一个具体的当前价或浮盈百分比"
+        ],
+        "no_hallucination": [
+          "不能编造未发生的拆股（如 AAPL 4:1 之外的拆股）",
+          "不能给错复权因子（TSLA 不是 5:1，NVDA 不是 4:1 单独）"
+        ]
+      },
+      "scoring": {
+        "method": "fact_recall_minus_hallucination",
+        "score_per_symbol_recalled": 0.1,
+        "score_per_fact_recalled": 0.15,
+        "penalty_per_hallucination": 0.2,
+        "max_score": 1.0,
+        "min_score": 0.0
+      }
+    }
+  ]
+}

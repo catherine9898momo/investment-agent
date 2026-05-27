@@ -1,113 +1,122 @@
 # 架构设计
 
-## 整体架构
+> **设计取向**：Agent 系统的本质 = LLM + 控制循环 + 外部能力。围绕三个核心矛盾分层：**LLM 不可靠 / 上下文有限 / 工具调用有副作用**。
 
-```
-┌──────────────────────────────────────────────────┐
-│                   用户交互层                       │
-│  ┌────────────┐  ┌────────────┐  ┌─────────────┐ │
-│  │  CLI 对话   │  │  周报推送   │  │  即时查询    │ │
-│  └─────┬──────┘  └─────┬──────┘  └──────┬──────┘ │
-├────────┴───────────────┴────────────────┴────────┤
-│                 Agent 编排层                       │
-│  ┌──────────────────────────────────────────────┐ │
-│  │           Claude Agent SDK                    │ │
-│  │  ┌─────────────┐  ┌────────────────────────┐ │ │
-│  │  │ Chat Agent   │  │ Weekly Analyst Agent   │ │ │
-│  │  │ (日常问答)    │  │ (周报生成)              │ │ │
-│  │  └─────────────┘  └────────────────────────┘ │ │
-│  └──────────────────────────────────────────────┘ │
-├──────────────────────────────────────────────────┤
-│                  MCP 工具层                        │
-│  ┌──────────┐  ┌──────────┐  ┌────────────────┐  │
-│  │ News MCP │  │Finance   │  │ Memory MCP     │  │
-│  │          │  │MCP       │  │                │  │
-│  │ -NewsAPI │  │ -Yahoo   │  │ -持仓管理       │  │
-│  │ -Google  │  │  Finance │  │ -关注列表       │  │
-│  │  News    │  │ -Alpha   │  │ -偏好设置       │  │
-│  │          │  │  Vantage │  │ -历史分析       │  │
-│  └──────────┘  └──────────┘  └────────────────┘  │
-├──────────────────────────────────────────────────┤
-│                  数据存储层                        │
-│  ┌──────────────────────────────────────────────┐ │
-│  │  SQLite (memory.db)                          │ │
-│  │  ├── portfolio     # 持仓记录                 │ │
-│  │  ├── watchlist     # 关注公司                 │ │
-│  │  ├── preferences   # 投资偏好                 │ │
-│  │  ├── analyses      # 历史分析                 │ │
-│  │  └── news_cache    # 新闻缓存                 │ │
-│  └──────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────┘
-```
+## 静态分层 — 五层框架与当前实现的对应关系
 
-## 核心工作流
+```mermaid
+flowchart TB
+    subgraph L1["① Orchestrator 层（轻量·Python 入口脚本）"]
+        A1[stateful_assistant.py<br/>长对话 / W5 主战场]
+        A2[weekly_analyst.py<br/>周报 stateless]
+        A3[long_dialogue_runner.py<br/>合成多轮压测]
+        A4[regression_runner.py<br/>9 case 回归]
+    end
 
-### 1. 每周分析流程
+    subgraph L2["② Planner 层（隐式·LLM 自决策）"]
+        P1["ReAct loop<br/>不物化 plan"]
+    end
 
-```
-触发 (cron / 手动)
-    │
-    ▼
-[拉取全球热点新闻] ──→ TOP 10 事件摘要
-    │
-    ▼
-[拉取关注公司新闻] ──→ 每个公司的近期动态
-    │
-    ▼
-[影响分析]
-    ├── 事件与公司的关联度评估
-    ├── 利好/利空/中性判断
-    ├── 影响程度评分 (1-10)
-    └── 结合投资者风格给出观点
-    │
-    ▼
-[持仓审视]
-    ├── 当前持仓是否受影响
-    ├── 关注列表中是否有机会
-    └── 风险提示
-    │
-    ▼
-[生成周报] ──→ 推送给用户
+    subgraph L3["③ Executor 层（Claude Agent SDK）"]
+        E1[ClaudeSDKClient<br/>stateful client]
+        E2[query<br/>stateless 调用]
+        E3["PreToolUse / PostToolUse Hook<br/>参数校验 + 结果落盘"]
+        E4["PreCompact Hook<br/>W5 在做·注入领域 instructions"]
+    end
+
+    subgraph L4["④ Tool 层（4 个 MCP Server·零修改复用）"]
+        T1[memory_server<br/>持仓 / 偏好 / 关注]
+        T2[finance_server<br/>quote / history]
+        T3[news_server<br/>新闻]
+        T4[corporate_actions_server<br/>拆股 ground truth ⭐]
+    end
+
+    subgraph L5["⑤ Memory 层"]
+        M1[Short-term:<br/>SDK message history]
+        M2["Working:<br/>tool 结果回灌（同 message history）"]
+        M3[Long-term:<br/>SQLite memory.db]
+    end
+
+    L1 --> L2 --> L3
+    L3 -.tool call.-> L4
+    L4 -.读写.-> M3
+    L3 -.维护.-> M1
+    L3 -.维护.-> M2
+
+    style L2 fill:#fff3cd
+    style E4 fill:#fff3cd
+    style T4 fill:#d4edda
 ```
 
-### 2. 日常对话流程
+**关键说明**：
+- 黄色块 = 隐式实现 / W5 进行中
+- 绿色块 = 项目核心差异化（拆股 ground truth 兜底 LLM 训练知识漂移）
+- **没有独立 Orchestrator 进程**：Orchestrator = Python 入口脚本本身。多客户端零修改复用（Claude Desktop / Claude Code / 自研 agent）靠 MCP 协议层实现
+- **没有显式 Planner**：当前场景是短链只读查询（2-4 个 tool call），ReAct 隐式 plan 够用。切换到显式 Plan-and-Execute 的条件：任务步数 >5-7、出现不可逆写操作、需要用户审批 plan
 
+## 动态时序 — 一次完整调用（以拆股查询为例）
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant O as stateful_assistant.py<br/>(Orchestrator)
+    participant S as ClaudeSDKClient<br/>(Executor)
+    participant L as Claude Sonnet 4.6
+    participant H as Hook 层
+    participant M as memory_server
+    participant C as corporate_actions_server
+    participant F as finance_server
+
+    U->>O: "我 TSLA 1000股 成本$1200，现在啥情况"
+    O->>S: client.query(input)
+    S->>L: messages + tools schema
+
+    Note over L: 隐式 plan:<br/>1.查持仓 2.查拆股 3.查行情
+
+    L-->>S: tool_use: list_portfolio
+    S->>H: PreToolUse 校验
+    H->>M: 执行
+    M-->>S: portfolio data
+    S->>H: PostToolUse 落盘
+    S->>L: tool_result 回灌
+
+    L-->>S: tool_use: get_corporate_actions(TSLA)
+    S->>C: 执行
+    C-->>S: 2022 拆股 3:1 ground truth ⭐
+    S->>L: tool_result 回灌
+
+    L-->>S: tool_use: get_quote(TSLA)
+    S->>F: 执行
+    F-->>S: 当前价
+    S->>L: tool_result 回灌
+
+    L-->>S: 综合回答(复权后成本 $400, 浮盈 +457%)
+    S-->>O: AssistantMessage
+    O-->>U: 输出
+
+    Note over S,L: 第 2 轮提问时<br/>SDK 自动带上完整 history<br/>= 隐式 working memory
 ```
-用户提问
-    │
-    ▼
-[意图识别]
-    ├── 查询类: 调用数据工具获取信息后回答
-    ├── 分析类: 调用多个工具 → 综合分析 → 回答
-    ├── 管理类: 更新持仓/关注列表/偏好
-    └── 闲聊类: 直接回答
-```
 
-## Agent 设计
+**这张图体现的工程价值**：
+1. **LLM 自路由**：步骤 4 / 7 / 10 三次 tool_use 顺序完全由 LLM 决定，无外部调度器
+2. **Ground truth 夹在推理链路中间**（步骤 8）而不是事后校验，所以能在 LLM 推理时直接矫正训练知识漂移
+3. **Hook 是基础设施**：每次 tool call 都有 Pre/Post 拦截，是 9/9 回归测试能跑通的前提
 
-### Weekly Analyst Agent
+## Agent 入口清单
 
-**角色**: 每周自动运行的分析师
-**工具**:
-- `get_global_news()` — 获取全球热点
-- `get_company_news(company)` — 获取公司新闻
-- `get_portfolio()` — 读取当前持仓
-- `get_watchlist()` — 读取关注列表
-- `get_preferences()` — 读取投资偏好
-- `save_analysis(report)` — 保存分析结果
+| 入口 | 状态 | 用途 | 备注 |
+|---|---|---|---|
+| `stateful_assistant.py` | W5 主战场 | 长对话 stateful 骨架 | 验证跨 query 的 message 维护 |
+| `weekly_analyst.py` | 稳定 | 周报生成 | stateless `query()` |
+| `long_dialogue_runner.py` | 实验 | 合成多轮压测 | 配 `synthetic_user.py` |
+| `regression_runner.py` | 稳定 | 9 case 回归 | 正样本 + 负样本全过 |
 
-**System Prompt 要点**:
-- 你是一位严谨的投资分析师
-- 参考用户欣赏的投资者的思维框架进行分析
-- 区分事实与观点，标注信息来源
-- 不给出具体买卖建议，只提供分析视角
-- 对不确定的事项明确标注不确定性
-
-### Chat Assistant Agent
-
-**角色**: 日常投资助手
-**工具**: 同上 + 持仓/关注列表的增删改查
-**特点**: 对话式交互，支持追问和深度讨论
+System Prompt 共同要点：
+- 严谨投资分析师定位，区分事实与观点
+- 涉及历史价位判断**强制先调 `get_corporate_actions`** 拿拆股 ground truth
+- 不给买卖建议，只提供分析视角
+- 不确定的事项明确标注
 
 ## 记忆系统设计
 

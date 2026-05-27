@@ -57,6 +57,9 @@ def build_options() -> ClaudeAgentOptions:
             "你是一个投资助手，会跨多轮对话累积持仓信息。"
             "涉及历史价位判断时务必先调 get_corporate_actions 拿拆股 ground truth。"
         ),
+        # 5/25 锁 Sonnet 4.6 · 默认继承 CLI 全局 Opus 一天烧 $17,Sonnet ~5x 便宜
+        # 且 4 策略对比只要求"同模型一致性"，不要求"用最强"
+        model="claude-sonnet-4-6",
     )
 
 

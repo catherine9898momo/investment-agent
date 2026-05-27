@@ -1,0 +1,116 @@
+{
+  "strategy_name": "S0_baseline_final_001",
+  "jsonl_path": "experiments/w5_compression/S0_baseline_final_001.jsonl",
+  "probe_results": [
+    {
+      "probe_id": "R10_single_fact",
+      "round_idx": 10,
+      "type": "single_fact_numeric",
+      "score": 0.0,
+      "max_score": 1.0,
+      "pass_rate": 0.0,
+      "details": {
+        "expected": 80.0,
+        "tolerance": 2.0,
+        "extracted_numbers": [
+          400.0,
+          1200.0,
+          15.0
+        ],
+        "closest_match": 15.0,
+        "abs_diff": 65.0,
+        "passed": false
+      }
+    },
+    {
+      "probe_id": "R20_multi_fact",
+      "round_idx": 20,
+      "type": "multi_fact_table",
+      "score": 0.0,
+      "max_score": 1.0,
+      "pass_rate": 0.0,
+      "details": {
+        "rows": [
+          {
+            "symbol": "TSLA",
+            "expected_cost": 80.0,
+            "expected_shares": 1000,
+            "symbol_present": true,
+            "cost_ok": false,
+            "shares_ok": true,
+            "passed": false
+          },
+          {
+            "symbol": "NVDA",
+            "expected_cost": 1.0,
+            "expected_shares": 200,
+            "symbol_present": true,
+            "cost_ok": true,
+            "shares_ok": false,
+            "passed": false
+          },
+          {
+            "symbol": "AAPL",
+            "expected_cost": 150.0,
+            "expected_shares": 500,
+            "symbol_present": true,
+            "cost_ok": true,
+            "shares_ok": false,
+            "passed": false
+          },
+          {
+            "symbol": "09988.HK",
+            "expected_cost": 280.0,
+            "expected_shares": 100,
+            "symbol_present": true,
+            "cost_ok": false,
+            "shares_ok": false,
+            "passed": false
+          },
+          {
+            "symbol": "600519.SS",
+            "expected_cost": 1680.0,
+            "expected_shares": 10,
+            "symbol_present": true,
+            "cost_ok": false,
+            "shares_ok": false,
+            "passed": false
+          }
+        ],
+        "n_correct": 0,
+        "n_total": 5
+      }
+    },
+    {
+      "probe_id": "R30_synthesis",
+      "round_idx": 30,
+      "type": "synthesis_with_recall",
+      "score": 0.6000000000000001,
+      "max_score": 1.0,
+      "pass_rate": 0.6000000000000001,
+      "details": {
+        "symbols_hit": [
+          "TSLA",
+          "NVDA",
+          "AAPL"
+        ],
+        "symbols_missed": [
+          "09988.HK",
+          "600519.SS"
+        ],
+        "facts_hit": [
+          "TSLA 拆股 15:1 或复权成本 $80",
+          "NVDA 拆股 40:1 或复权成本 $1"
+        ],
+        "facts_missed": [
+          "至少一个具体的当前价或浮盈百分比"
+        ],
+        "hallucinations": [],
+        "raw_score": 0.6000000000000001
+      }
+    }
+  ],
+  "total_score": 0.6000000000000001,
+  "total_max": 3.0,
+  "overall_pass_rate": 0.20000000000000004
+}

@@ -1,19 +1,85 @@
-# 持仓列表
+# 持仓列表 — W5 上下文工程实验 fixture
+#
+# 这 5 个持仓不是真实持仓，是 W5 实验设计专门挑的边界 case 集合。
+# 每个持仓对应一个 W5 实验边界（拆股累计 / 多次拆股 / 无拆股负样本 / 跨市场 / A 股）。
+# 详见 docs/w5-experiment-design.md 第 3.2 节。
+#
 # 格式说明:
-#   symbol: 股票代码 (美股直接写代码, A股加 .SS/.SZ 后缀, 港股加 .HK 后缀)
-#   name: 公司名称
-#   market: US / CN / HK
-#   shares: 持仓数量
+#   symbol:   股票代码（美股直接写代码，A 股加 .SS/.SZ 后缀，港股加 .HK 后缀）
+#   name:     公司名称
+#   market:   US / CN / HK
+#   shares:   持仓数量
 #   avg_cost: 平均成本价
+#   _w5_edge: W5 实验意图说明（下划线前缀 = memory_server 不会读这个字段，纯注释）
 
-holdings: []
-  # - symbol: AAPL
-  #   name: Apple
-  #   market: US
-  #   shares: 100
-  #   avg_cost: 170.50
-  # - symbol: 600519.SS
-  #   name: 贵州茅台
-  #   market: CN
-  #   shares: 10
-  #   avg_cost: 1680.00
+holdings:
+  # —— Case 1：TSLA $1200 ——
+  # W5 关键 fixture · corporate_actions 必触发
+  # 拆股事实：2020-08 (5:1) + 2022-08 (3:1)，累计 15:1
+  # 正确复权后成本：$1200 ÷ 15 = $80
+  # 是 W2 反例闭环的核心 case（D' 实测 4/4 维度全过）
+  - symbol: TSLA
+    name: Tesla
+    market: US
+    shares: 1000
+    avg_cost: 1200.00
+    _w5_edge: split-cumulative-15x
+
+  # —— Case 2：NVDA $40 ——
+  # W5 难度升级 · 多次拆股累计
+  # 拆股事实：2000-06 (2:1) + 2001-09 (2:1) + 2006-04 (2:1) + 2007-09 (3:2)
+  #         + 2021-07 (4:1) + 2024-06 (10:1)
+  # 近期累计（2021 起算）：4×10 = 40:1
+  # $40 这个价位歧义：可能是 2021 拆股前 / 2024 拆股前 / 2024 后某个低点
+  # 测试 Agent 能否主动澄清持仓时点（W2 D' 涌现行为 2）
+  - symbol: NVDA
+    name: NVIDIA
+    market: US
+    shares: 200
+    avg_cost: 40.00
+    _w5_edge: split-multiple-ambiguous
+
+  # —— Case 3：AAPL $150 ——
+  # W5 负样本 · 不应误触发 corporate_actions
+  # 历史有拆股（2020-08 4:1 + 更早的几次），但 $150 是近年常见价位
+  # 不需要复权计算，Agent 调 corporate_actions 是"过度调用"
+  # 用来验证 description nudge 的 precision（不该调就不调）
+  - symbol: AAPL
+    name: Apple
+    market: US
+    shares: 500
+    avg_cost: 150.00
+    _w5_edge: split-not-relevant-negative
+
+  # —— Case 4：09988.HK $280 ——
+  # W5 跨市场 + 价位异常但非拆股
+  # 阿里巴巴港股 -52% 是真实下跌（AI 竞争 + 子公司业绩 + 大股东减持）
+  # 测试两点：
+  #   (a) 港股 symbol 不挂（finance_server 港股 normalize 走通）
+  #   (b) Agent 不应该把 -52% 误判为拆股（W2 反例 4/4 已验证）
+  - symbol: 09988.HK
+    name: 阿里巴巴
+    market: HK
+    shares: 100
+    avg_cost: 280.00
+    _w5_edge: hk-real-decline-no-split
+
+  # —— Case 5：600519.SS $1680 ——
+  # W5 A 股覆盖 · 无拆股
+  # 贵州茅台 A 股，价格稳定无拆股
+  # 测试三点：
+  #   (a) A 股 .SS 后缀 symbol 走得通
+  #   (b) 中文公司名（"贵州茅台" / "茅台"）在 Agent 内能 match symbol
+  #   (c) 真实负样本，确认 Agent 不在所有 case 都调 corporate_actions
+  - symbol: 600519.SS
+    name: 贵州茅台
+    market: CN
+    shares: 10
+    avg_cost: 1680.00
+    _w5_edge: cn-stable-no-split
+
+# 实验意图覆盖矩阵：
+#   市场维度：US (3) / HK (1) / CN (1)
+#   拆股事件维度：累计 15:1 / 累计 40:1+ / 历史但不相关 / 无 / 无
+#   样本类型：正样本 ×2（必触 corp_actions） + 负样本 ×3（不该触）
+#   价位异常归因维度：拆股 ×2 / 真实下跌 ×1 / 正常 ×2
