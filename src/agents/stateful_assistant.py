@@ -47,14 +47,19 @@ def build_options() -> ClaudeAgentOptions:
         permission_mode="bypassPermissions",
         allowed_tools=[
             "mcp__investment-memory__list_portfolio",
+            "mcp__investment-memory__add_holding",
+            "mcp__investment-memory__list_watchlist",
             "mcp__investment-memory__get_preferences",
             "mcp__investment-finance__get_quote",
             "mcp__investment-finance__get_history",
             "mcp__investment-news__get_news",
             "mcp__investment-corporate-actions__get_corporate_actions",
         ],
+        disallowed_tools=["Task", "TaskList", "TodoRead", "TodoWrite"],
         system_prompt=(
             "你是一个投资助手，会跨多轮对话累积持仓信息。"
+            "当用户询问当前持仓时，必须调用 list_portfolio，不要使用 TaskList/Todo 工具。"
+            "当用户明确表达买入、持有或加入持仓时，调用 add_holding 记录到投资 memory。"
             "涉及历史价位判断时务必先调 get_corporate_actions 拿拆股 ground truth。"
         ),
         # 5/25 锁 Sonnet 4.6 · 默认继承 CLI 全局 Opus 一天烧 $17,Sonnet ~5x 便宜

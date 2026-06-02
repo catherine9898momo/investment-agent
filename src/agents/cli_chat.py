@@ -20,6 +20,18 @@ from claude_agent_sdk.types import (
 
 from src.agents.stateful_assistant import build_options, log_context_usage
 
+
+async def try_log_context_usage(client: ClaudeSDKClient, turn_idx: int) -> None:
+    """Print context usage when the SDK control channel responds.
+
+    The interactive chat should not die just because the CLI control request
+    times out. Real usage comes first; context metrics are observability.
+    """
+    try:
+        await log_context_usage(client, turn_idx)
+    except Exception as exc:  # noqa: BLE001 - keep REPL alive on SDK control timeout
+        log.warning("T%d context usage unavailable: %s", turn_idx, exc)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
@@ -73,7 +85,7 @@ def handle_message(msg, turn_idx: int) -> None:
 async def chat_loop() -> None:
     options = build_options()
     print("investment-agent CLI chat")
-    print("Type /help for commands, /exit to quit.\n")
+    print("Type /help for commands, /context for metrics, /exit to quit.\n")
 
     async with ClaudeSDKClient(options=options) as client:
         turn_idx = 0
@@ -93,14 +105,13 @@ async def chat_loop() -> None:
                 print_help()
                 continue
             if user_input in CONTEXT_COMMANDS:
-                await log_context_usage(client, turn_idx)
+                await try_log_context_usage(client, turn_idx)
                 continue
 
             turn_idx += 1
             await client.query(user_input)
             async for msg in client.receive_response():
                 handle_message(msg, turn_idx)
-            await log_context_usage(client, turn_idx)
 
 
 if __name__ == "__main__":
