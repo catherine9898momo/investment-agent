@@ -46,7 +46,7 @@ Live tool data with mock synthesis:
 Live tool data with real LLM synthesis:
 
 ```bash
-ANTHROPIC_API_KEY=... .venv/bin/python -m src.agents.research_demo --data-source live --synthesizer anthropic
+ANTHROPIC_API_KEY=... ANTHROPIC_BASE_URL=... .venv/bin/python -m src.agents.research_demo --data-source live --synthesizer anthropic
 ```
 
 Small case runner:

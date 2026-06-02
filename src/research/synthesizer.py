@@ -11,9 +11,11 @@ import json
 import os
 from dataclasses import dataclass, field
 from typing import Any, Protocol
+from dotenv import load_dotenv
 
 from src.research.models import Claim, Evidence, Fact, ResearchRunState, new_id
 
+load_dotenv()
 
 @dataclass
 class CandidateClaim:
@@ -109,7 +111,8 @@ class AnthropicJSONResearchSynthesizer:
 
         from anthropic import Anthropic
 
-        client = Anthropic(api_key=api_key)
+        base_url = os.environ.get("ANTHROPIC_BASE_URL") or None
+        client = Anthropic(api_key=api_key, base_url=base_url)
         prompt = build_synthesis_prompt(run)
         response = client.messages.create(
             model=self.model,
