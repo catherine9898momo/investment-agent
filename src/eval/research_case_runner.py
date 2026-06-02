@@ -59,10 +59,14 @@ CASES = [
 ]
 
 
-def run_cases(synthesizer: str) -> int:
+def run_cases(synthesizer: str, data_source: str) -> int:
     passed = 0
     for case in CASES:
-        run = build_research_run(case.query, synthesizer_name=synthesizer)
+        run = build_research_run(
+            case.query,
+            synthesizer_name=synthesizer,
+            data_source=data_source,
+        )
         output = run.final_output or ""
         missing_sections = [section for section in case.expected_sections if section not in output]
         trace_ok = bool(run.trace_path and Path(run.trace_path).exists())
@@ -85,8 +89,9 @@ def run_cases(synthesizer: str) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--synthesizer", choices=["mock", "anthropic"], default="mock")
+    parser.add_argument("--data-source", choices=["fixture", "live"], default="fixture")
     args = parser.parse_args()
-    raise SystemExit(run_cases(args.synthesizer))
+    raise SystemExit(run_cases(args.synthesizer, args.data_source))
 
 
 if __name__ == "__main__":
