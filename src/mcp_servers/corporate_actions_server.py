@@ -183,6 +183,7 @@ def _fetch_from_yfinance(symbol: str) -> list[dict]:
 
 def get_corporate_actions(symbol: str, include_dividends: bool = False) -> dict[str, Any]:
     """获取股票历史 corporate actions。缓存优先，过期则刷新。"""
+    _init_schema()
     normalized = normalize_symbol(symbol)
     cached, last_fetched = _read_cache(normalized)
 
