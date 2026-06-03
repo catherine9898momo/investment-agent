@@ -88,6 +88,42 @@ Candidate command shape, with secrets loaded only from the VPS environment:
 .venv/bin/python -m src.agents.research_demo --data-source live --synthesizer anthropic
 ```
 
+
+## Day 3 Status: Live + Anthropic
+
+Completed on 2026-06-03:
+
+- Ran `live + anthropic` from the VPS and reproduced a real JSON parsing failure from model text output.
+- Root cause: the model emitted human-readable JSON-like text with an unescaped quote inside a string, causing `json.loads` to fail.
+- Updated `AnthropicJSONResearchSynthesizer` to use Anthropic structured outputs via `output_config.format=json_schema`.
+- Added `RESEARCH_SYNTHESIS_SCHEMA` for claims and human confirmation points.
+- Added `synthesis_result_from_data` so structured model output can be converted into `SynthesisResult` without duplicating parsing logic.
+- Kept `_parse_json_object` as a compatibility fallback for fenced or wrapped JSON text.
+- Increased Anthropic `max_tokens` from `1200` to `2000`.
+- Added a minimal incomplete-claim filter so obviously dangling claim text is dropped rather than rendered as a broken research claim.
+- Added tests for the strict schema, structured data conversion, and incomplete claim filtering.
+
+Verified on VPS:
+
+```bash
+.venv/bin/python -m pytest
+.venv/bin/ruff check src/research/synthesizer.py src/research/test_synthesizer.py
+.venv/bin/python -m src.agents.research_demo --data-source live --synthesizer anthropic
+```
+
+Observed results:
+
+- `pytest`: 13 passed.
+- `ruff`: all checks passed for changed files.
+- live + anthropic: Guardrail PASS, trace written.
+- Latest successful trace observed: `logs/research_traces/rrun_3001cf396ce6.jsonl`.
+
+Remaining Day 3 notes:
+
+- The model is now structurally constrained, but factual depth is still limited by the current five normalized facts.
+- The output can still over-interpret news titles; Day 5 freshness/conflict/unknown rules should make headline-only evidence more explicit.
+- Do not commit/push until the user reviews the diff.
+
 ## Remaining Week Plan
 
 - Day 4: Expand Case Runner to 10 cases.

@@ -13,9 +13,41 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 from dotenv import load_dotenv
 
-from src.research.models import Claim, Evidence, Fact, ResearchRunState, new_id
+from src.research.models import Claim, Evidence, ResearchRunState, new_id
 
 load_dotenv()
+
+RESEARCH_SYNTHESIS_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "claims": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "A complete, standalone research sentence. Do not end mid-phrase."},
+                    "claim_type": {
+                        "type": "string",
+                        "enum": [
+                            "supporting_factor",
+                            "risk_factor",
+                            "fit_assessment",
+                            "unknown",
+                            "fact_summary",
+                        ],
+                    },
+                    "fact_ids": {"type": "array", "items": {"type": "string"}},
+                    "is_key": {"type": "boolean"},
+                },
+                "required": ["text", "claim_type", "fact_ids", "is_key"],
+                "additionalProperties": False,
+            },
+        },
+        "human_confirmation_points": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["claims", "human_confirmation_points"],
+    "additionalProperties": False,
+}
 
 @dataclass
 class CandidateClaim:
@@ -116,26 +148,54 @@ class AnthropicJSONResearchSynthesizer:
         prompt = build_synthesis_prompt(run)
         response = client.messages.create(
             model=self.model,
-            max_tokens=1200,
+            max_tokens=2000,
             temperature=0,
             messages=[{"role": "user", "content": prompt}],
+            output_config={
+                "format": {
+                    "type": "json_schema",
+                    "schema": RESEARCH_SYNTHESIS_SCHEMA,
+                }
+            },
         )
         raw = "".join(block.text for block in response.content if getattr(block, "type", None) == "text")
-        data = _parse_json_object(raw)
-        claims = [
-            CandidateClaim(
-                text=item["text"],
-                claim_type=item["claim_type"],
-                fact_ids=item.get("fact_ids", []),
-                is_key=item.get("is_key", True),
-            )
-            for item in data.get("claims", [])
-        ]
-        return SynthesisResult(
-            claims=claims,
-            human_confirmation_points=data.get("human_confirmation_points", []),
-            raw_model_output=raw,
+        data = _parse_structured_json(raw)
+        return synthesis_result_from_data(data, raw)
+
+
+def synthesis_result_from_data(data: dict[str, Any], raw: str | None = None) -> SynthesisResult:
+    claims = [
+        CandidateClaim(
+            text=item["text"],
+            claim_type=item["claim_type"],
+            fact_ids=item.get("fact_ids", []),
+            is_key=item.get("is_key", True),
         )
+        for item in data.get("claims", [])
+        if _is_complete_claim_text(item.get("text", ""))
+    ]
+    return SynthesisResult(
+        claims=claims,
+        human_confirmation_points=data.get("human_confirmation_points", []),
+        raw_model_output=raw,
+    )
+
+
+def _is_complete_claim_text(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped:
+        return False
+    dangling_endings = ("添加了", "加入", "在", "对", "的", "和", "与", "及", "了")
+    if stripped.endswith(dangling_endings):
+        return False
+    return stripped.endswith((".", "。", "!", "！", "?", "？", ")", "）"))
+
+
+def _parse_structured_json(raw: str) -> dict[str, Any]:
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return _parse_json_object(raw)
 
 
 def build_synthesis_prompt(run: ResearchRunState) -> str:
@@ -152,6 +212,7 @@ def build_synthesis_prompt(run: ResearchRunState) -> str:
     return (
         "You are an investment research synthesizer, not a trading advisor.\n"
         "Use only the facts below. Do not introduce new factual claims.\n"
+        "Every claim text must be a complete standalone sentence and must not end mid-phrase.\n"
         "Do not recommend buying, selling, adding, trimming, holding, shorting, or clearing a position.\n"
         "Return a single JSON object with this schema:\n"
         "{\n"

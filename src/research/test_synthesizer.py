@@ -1,5 +1,10 @@
 from src.research.models import Fact, ResearchRunState, Source
-from src.research.synthesizer import MockLLMResearchSynthesizer, bind_claims_to_evidence
+from src.research.synthesizer import (
+    RESEARCH_SYNTHESIS_SCHEMA,
+    MockLLMResearchSynthesizer,
+    bind_claims_to_evidence,
+    synthesis_result_from_data,
+)
 
 
 def test_mock_synthesizer_outputs_claims_with_evidence_after_binding() -> None:
@@ -49,3 +54,60 @@ def test_mock_synthesizer_outputs_claims_with_evidence_after_binding() -> None:
     assert len(claims) == 4
     assert all(claim.evidence for claim in claims)
     assert synthesis.human_confirmation_points
+
+
+def test_research_synthesis_schema_requires_strict_claim_shape() -> None:
+    assert RESEARCH_SYNTHESIS_SCHEMA["required"] == ["claims", "human_confirmation_points"]
+    assert RESEARCH_SYNTHESIS_SCHEMA["additionalProperties"] is False
+    claim_schema = RESEARCH_SYNTHESIS_SCHEMA["properties"]["claims"]["items"]
+    assert claim_schema["required"] == ["text", "claim_type", "fact_ids", "is_key"]
+    assert claim_schema["additionalProperties"] is False
+    assert "risk_factor" in claim_schema["properties"]["claim_type"]["enum"]
+
+
+def test_synthesis_result_from_structured_data() -> None:
+    result = synthesis_result_from_data(
+        {
+            "claims": [
+                {
+                    "text": "News evidence remains mixed.",
+                    "claim_type": "risk_factor",
+                    "fact_ids": ["fact_news"],
+                    "is_key": True,
+                }
+            ],
+            "human_confirmation_points": ["Confirm source freshness."],
+        },
+        raw="raw-json",
+    )
+
+    assert len(result.claims) == 1
+    assert result.claims[0].claim_type == "risk_factor"
+    assert result.claims[0].fact_ids == ["fact_news"]
+    assert result.human_confirmation_points == ["Confirm source freshness."]
+    assert result.raw_model_output == "raw-json"
+
+
+def test_synthesis_result_filters_incomplete_claim_text() -> None:
+    result = synthesis_result_from_data(
+        {
+            "claims": [
+                {
+                    "text": "Tesla was reported to have added",
+                    "claim_type": "risk_factor",
+                    "fact_ids": ["fact_news"],
+                    "is_key": True,
+                },
+                {
+                    "text": "Competition pressure remains a risk signal.",
+                    "claim_type": "risk_factor",
+                    "fact_ids": ["fact_news"],
+                    "is_key": True,
+                },
+            ],
+            "human_confirmation_points": [],
+        }
+    )
+
+    assert len(result.claims) == 1
+    assert result.claims[0].text == "Competition pressure remains a risk signal."
