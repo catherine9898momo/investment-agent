@@ -52,7 +52,9 @@ ANTHROPIC_API_KEY=... ANTHROPIC_BASE_URL=... .venv/bin/python -m src.agents.rese
 Small case runner:
 
 ```bash
-.venv/bin/python -m src.eval.research_case_runner --data-source live --synthesizer mock
+.venv/bin/python -m src.eval.research_case_runner --data-source fixture --synthesizer mock --suite all
+.venv/bin/python -m src.eval.research_case_runner --data-source live --synthesizer mock --suite boundary
+.venv/bin/python -m src.eval.research_case_runner --data-source fixture --synthesizer mock --suite data-quality --json-report
 ```
 
 The case runner is a regression harness for the full research loop. It does not
@@ -63,7 +65,7 @@ engineering properties.
 
 ## Current Case Taxonomy
 
-The Day 4 suite contains 10 cases with lightweight taxonomy metadata:
+The Day 4 boundary suite contains 10 cases with lightweight taxonomy metadata:
 
 - `tsla_watch`: research quality, watchlist review.
 - `tsla_buy_boundary`: direct-advice boundary, buy intent.
@@ -76,9 +78,35 @@ The Day 4 suite contains 10 cases with lightweight taxonomy metadata:
 - `tsla_source_review`: evidence integrity, source review.
 - `tsla_unknowns_review`: unknowns, missing-information review.
 
-This suite intentionally emphasizes high-risk direct trading advice boundaries
+This boundary suite intentionally emphasizes high-risk direct trading advice
 and basic output quality. It does not claim complete coverage of the investment
 research problem space.
+
+The Day 5 data-quality suite adds 3 frozen tool-result cases:
+
+- `tsla_stale_quote`: freshness boundary, stale quote timestamp.
+- `tsla_missing_news`: missing-data boundary, empty news result.
+- `tsla_conflicting_signals`: conflict boundary, negative price history with positive news signal.
+
+These frozen cases do not depend on live data behaving a certain way. They feed
+controlled tool bundles through the same normalization, synthesis, guardrail,
+output, and trace path.
+
+## Validation Records
+
+Use `--json-report` when a case should be reviewed as structured input and
+output, not only as PASS/FAIL text. Each validation record includes:
+
+- `case_id`, `query`, and taxonomy metadata.
+- `execution`, including synthesizer, data source, and input mode.
+- `frozen_tool_bundle` for frozen cases, showing the exact tool-shaped input.
+- `normalized_facts`, including fact ids, metrics, text, source ids, timestamps,
+  and source names.
+- `synthesis_claims`, including claim type and the evidence fact metrics each
+  claim is bound to.
+- `guardrail_result`, including every policy check and message.
+- `case_assertions`, including expected metrics/terms and missing items.
+- `final_output` and `trace_path` for human review and trace lookup.
 
 ## Coverage Status
 
@@ -89,21 +117,23 @@ Covered now:
 - Output quality checks for sources, risk or uncertainty, HITL, trace presence,
   and expected markdown sections.
 - Evidence and timestamp behavior indirectly through the guardrail evaluator.
+- Data-quality facts for stale quote data, missing news data, and simple conflicting signals.
+- Frozen data-quality regression cases that check both fact metrics and output terms.
 
 Weak or not covered yet:
 
 - English, mixed-language, slang, and indirect user expressions.
-- Stale data, missing data, tool failure, and conflicting source states.
+- Broader stale-data rules for every tool result type.
+- More nuanced conflict detection across multiple independent providers.
 - Frozen failure examples from real live runs.
 - Deeper trace JSONL assertions beyond trace file existence.
 
 ## Next Eval Layer
 
-After the 10-case boundary suite is stable, add frozen cases with expected
-properties:
+Next layers to add:
 
-- stale-data cases: simulated quote/news failure
+- broader stale-data cases across quote, history, news, and corporate actions
 - evidence integrity cases: LLM returns claim with invalid `fact_id`
-- conflict cases: news says mixed or opposing signals
+- richer conflict cases across multiple independent providers
 - corporate-action cases: historical cost and split adjustment
 - failure-regression cases: real bad outputs found during live review

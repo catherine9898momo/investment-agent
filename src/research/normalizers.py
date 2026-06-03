@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 from src.research.models import Fact, Source, new_id, utc_now_iso
 from src.research.tool_provider import ToolResultBundle
+
+
+STALE_QUOTE_MAX_AGE_DAYS = 2
 
 
 @dataclass
@@ -24,7 +28,11 @@ def normalize_tool_result_bundle(bundle: ToolResultBundle, symbol: str) -> Norma
         normalize_news(bundle.news, bundle.data_source, symbol),
         normalize_corporate_actions(bundle.corporate_actions, bundle.data_source, symbol),
     ]
-    return _merge(results)
+    normalized = _merge(results)
+    quality = normalize_data_quality(bundle, symbol)
+    if quality.facts:
+        return _merge([normalized, quality])
+    return normalized
 
 
 def normalize_preferences(preferences: dict[str, Any], data_source: str, symbol: str) -> NormalizedToolResult:
@@ -117,6 +125,55 @@ def normalize_corporate_actions(actions: dict[str, Any], data_source: str, symbo
             )
         ],
     )
+
+
+def normalize_data_quality(bundle: ToolResultBundle, symbol: str) -> NormalizedToolResult:
+    source = _tool_source(bundle.data_source, "data quality checks", "research.data_quality_check")
+    facts: list[Fact] = []
+
+    quote_timestamp = _first_present_timestamp(bundle.quote, ["as_of", "timestamp", "last_updated", "fetched_at"])
+    if quote_timestamp and _is_older_than_days(quote_timestamp, STALE_QUOTE_MAX_AGE_DAYS):
+        facts.append(
+            _fact(
+                f"Data quality limitation for {symbol}: quote timestamp {quote_timestamp} is stale for current research use.",
+                source,
+                metric="stale_quote",
+                value={"observed_at": quote_timestamp, "max_age_days": STALE_QUOTE_MAX_AGE_DAYS},
+                symbol=symbol,
+            )
+        )
+
+    news_items = bundle.news.get("items") or []
+    if _has_error(bundle.news) or not news_items:
+        facts.append(
+            _fact(
+                f"Data quality limitation for {symbol}: news results are missing or unavailable and cannot support fresh news conclusions.",
+                source,
+                metric="missing_news",
+                value={"news": bundle.news},
+                symbol=symbol,
+            )
+        )
+
+    history_direction = _history_direction(bundle.history)
+    news_signal = _news_signal(bundle.news)
+    if _signals_conflict(history_direction, news_signal):
+        facts.append(
+            _fact(
+                (
+                    f"Data quality limitation for {symbol}: recent price history signal "
+                    f"({history_direction}) conflicts with news signal ({news_signal})."
+                ),
+                source,
+                metric="conflicting_signals",
+                value={"history_direction": history_direction, "news_signal": news_signal},
+                symbol=symbol,
+            )
+        )
+
+    if not facts:
+        return NormalizedToolResult(sources=[], facts=[])
+    return NormalizedToolResult(sources=[source], facts=facts)
 
 
 def summarize_quote_fact(symbol: str, quote: dict[str, Any]) -> str:
@@ -217,3 +274,69 @@ def _has_error(value: dict[str, Any]) -> bool:
 def _valid_history(history: dict[str, Any]) -> bool:
     bars = history.get("bars") or []
     return any(bar.get("close") is not None for bar in bars)
+
+
+def _first_present_timestamp(value: dict[str, Any], keys: list[str]) -> str | None:
+    for key in keys:
+        candidate = value.get(key)
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate
+    return None
+
+
+def _is_older_than_days(timestamp: str, days: int) -> bool:
+    parsed = _parse_datetime(timestamp)
+    if parsed is None:
+        return False
+    age = datetime.now(timezone.utc) - parsed
+    return age.days > days
+
+
+def _parse_datetime(value: str) -> datetime | None:
+    try:
+        normalized = value.replace("Z", "+00:00")
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        try:
+            parsed = datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _history_direction(history: dict[str, Any]) -> str:
+    bars = history.get("bars") or []
+    closes = [bar.get("close") for bar in bars if isinstance(bar.get("close"), int | float)]
+    if len(closes) < 2 or closes[0] == 0:
+        return "unknown"
+    change_pct = ((closes[-1] - closes[0]) / closes[0]) * 100
+    if change_pct >= 1:
+        return "positive"
+    if change_pct <= -1:
+        return "negative"
+    return "flat"
+
+
+def _news_signal(news: dict[str, Any]) -> str:
+    titles = " ".join(str(item.get("title", "")) for item in news.get("items") or []).lower()
+    if not titles:
+        return "unknown"
+    positive_keywords = ["beat", "growth", "strong", "record", "rally", "positive", "improves", "surge"]
+    negative_keywords = ["miss", "weak", "falls", "decline", "concern", "cuts", "probe", "negative", "slump"]
+    has_positive = any(keyword in titles for keyword in positive_keywords)
+    has_negative = any(keyword in titles for keyword in negative_keywords)
+    if has_positive and has_negative:
+        return "mixed"
+    if has_positive:
+        return "positive"
+    if has_negative:
+        return "negative"
+    if "mixed" in titles:
+        return "mixed"
+    return "unknown"
+
+
+def _signals_conflict(history_direction: str, news_signal: str) -> bool:
+    return (history_direction, news_signal) in {("positive", "negative"), ("negative", "positive")}

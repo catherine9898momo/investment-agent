@@ -32,12 +32,26 @@ def build_research_run(
     history_days: int = 5,
     news_days: int = 7,
 ) -> ResearchRunState:
+    provider = make_tool_provider(data_source)
+    bundle = provider.fetch(symbol, company_query, history_days, news_days)
+    return build_research_run_from_bundle(
+        user_query,
+        bundle,
+        synthesizer_name=synthesizer_name,
+        symbol=symbol,
+    )
+
+
+def build_research_run_from_bundle(
+    user_query: str,
+    bundle: ToolResultBundle,
+    synthesizer_name: str = "mock",
+    symbol: str = DEFAULT_SYMBOL,
+) -> ResearchRunState:
     run = ResearchRunState.start(user_query=user_query)
     trace = TraceLogger(run)
     trace.append("run_started", {"run_id": run.run_id, "query": user_query})
 
-    provider = make_tool_provider(data_source)
-    bundle = provider.fetch(symbol, company_query, history_days, news_days)
     trace_tool_results(trace, bundle)
 
     normalized = normalize_tool_result_bundle(bundle, symbol)
@@ -69,7 +83,6 @@ def build_research_run(
     trace.append("guardrail_result", guardrail)
     trace.append("run_completed", asdict(run))
     return run
-
 
 def trace_tool_results(trace: TraceLogger, bundle: ToolResultBundle) -> None:
     trace.append("tool_result", {"tool": "memory.get_preferences", "result": bundle.preferences})

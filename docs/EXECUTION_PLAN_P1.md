@@ -124,9 +124,77 @@ Remaining Day 3 notes:
 - The output can still over-interpret news titles; Day 5 freshness/conflict/unknown rules should make headline-only evidence more explicit.
 - Do not commit/push until the user reviews the diff.
 
+## Day 4 Status: Case Runner Taxonomy
+
+Completed on 2026-06-03:
+
+- Expanded `src/eval/research_case_runner.py` from 3 cases to 10 boundary regression cases.
+- Added lightweight taxonomy metadata to each case: `risk_type`, `intent`, `language`, and `expected_behavior`.
+- Covered direct-advice intents for buy, liquidate, add, trim, hold, and short.
+- Documented current coverage and gaps in `docs/RESEARCH_CASE_EVAL.md`.
+
+Verified on VPS:
+
+```bash
+.venv/bin/python -m src.eval.research_case_runner --data-source fixture --synthesizer mock
+.venv/bin/python -m src.eval.research_case_runner --data-source live --synthesizer mock
+.venv/bin/python -m pytest
+.venv/bin/ruff check src/eval/research_case_runner.py
+```
+
+Observed results before commit:
+
+- fixture + mock case runner: 10/10 PASS.
+- live + mock case runner: 10/10 PASS.
+- `pytest`: 13 passed.
+- `ruff`: all checks passed.
+
+Committed and pushed:
+
+- `c2eac74 Expand research case runner taxonomy`
+
+## Day 5 Status: Freshness, Missing Data, Conflict, Unknowns
+
+Completed on 2026-06-03:
+
+- Added data-quality normalization facts for:
+  - `stale_quote` when quote timestamps are older than the configured quote freshness window.
+  - `missing_news` when news results are empty or unavailable.
+  - `conflicting_signals` when simple price-history direction conflicts with news signal direction.
+- Kept existing normal facts stable; data-quality facts are appended only when a quality issue is present.
+- Added `build_research_run_from_bundle` so frozen tool-result bundles can run through the same normalization, synthesis, guardrail, output, and trace path.
+- Updated the mock synthesizer to turn stale/missing/failure/unknown/conflicting facts into `risk_factor` or `unknown` claims instead of supporting conclusions.
+- Updated the Anthropic synthesis prompt to treat data-quality facts as risk or unknown claims.
+- Extended the case runner with `--suite boundary|data-quality|all`.
+- Added 3 frozen data-quality cases:
+  - `tsla_stale_quote`
+  - `tsla_missing_news`
+  - `tsla_conflicting_signals`
+- Added tests for data-quality fact generation and mock synthesis behavior.
+
+Verified on VPS:
+
+```bash
+.venv/bin/ruff check src/research/normalizers.py src/agents/research_demo.py src/research/synthesizer.py src/eval/research_case_runner.py src/research/test_normalizers.py src/research/test_synthesizer.py
+.venv/bin/python -m pytest
+.venv/bin/python -m src.eval.research_case_runner --data-source fixture --synthesizer mock --suite all
+.venv/bin/python -m src.eval.research_case_runner --data-source live --synthesizer mock --suite boundary
+```
+
+Observed results:
+
+- `ruff`: all checks passed.
+- `pytest`: 17 passed.
+- fixture + mock all suite: 13/13 PASS.
+- live + mock boundary suite: 10/10 PASS.
+
+Remaining Day 5 notes:
+
+- Freshness detection is intentionally minimal and currently focused on quote timestamps.
+- Conflict detection is intentionally simple and uses price-history direction versus news-title signal direction.
+- Failure-regression cases from real live runs have not been added yet.
+
 ## Remaining Week Plan
 
-- Day 4: Expand Case Runner to 10 cases.
-- Day 5: Add minimal freshness, conflict, and unknown rules.
 - Day 6: Add investment memo output shape.
 - Day 7: Write P1 summary docs and interview explanation material.

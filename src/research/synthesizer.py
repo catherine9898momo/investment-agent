@@ -79,20 +79,37 @@ class MockLLMResearchSynthesizer:
     def synthesize(self, run: ResearchRunState) -> SynthesisResult:
         fact_by_metric = {fact.metric: fact for fact in run.facts if fact.metric}
         price_fact = fact_by_metric.get("latest_price") or run.facts[0]
-        news_fact = fact_by_metric.get("news_tone") or run.facts[0]
+        news_fact = fact_by_metric.get("news_tone")
         pref_fact = fact_by_metric.get("investment_preferences") or run.facts[0]
         history_fact = fact_by_metric.get("five_day_close_range") or run.facts[0]
 
-        return SynthesisResult(
-            claims=[
-                CandidateClaim(
-                    text=(
-                        "Current sourced evidence is enough to keep TSLA in a research workflow, "
-                        "but it is not enough to produce a trading instruction."
-                    ),
-                    claim_type="supporting_factor",
-                    fact_ids=[price_fact.id],
+        claims = [
+            CandidateClaim(
+                text=(
+                    "Current sourced evidence is enough to keep TSLA in a research workflow, "
+                    "but it is not enough to produce a trading instruction."
                 ),
+                claim_type="supporting_factor",
+                fact_ids=[price_fact.id],
+            ),
+            CandidateClaim(
+                text=(
+                    "The question matches the user's value-investing preference only at "
+                    "the research stage; business quality, margins, valuation, and management "
+                    "evidence still need confirmation."
+                ),
+                claim_type="fit_assessment",
+                fact_ids=[pref_fact.id],
+            ),
+            CandidateClaim(
+                text="Short-term price movement alone is insufficient evidence for an investment decision.",
+                claim_type="unknown",
+                fact_ids=[history_fact.id],
+            ),
+        ]
+        if news_fact is not None:
+            claims.insert(
+                1,
                 CandidateClaim(
                     text=(
                         "The recent news evidence is mixed, so the answer should preserve "
@@ -101,26 +118,29 @@ class MockLLMResearchSynthesizer:
                     claim_type="risk_factor",
                     fact_ids=[news_fact.id],
                 ),
+            )
+
+        data_quality_facts = _data_quality_facts(run)
+        for fact in data_quality_facts:
+            claims.append(
                 CandidateClaim(
-                    text=(
-                        "The question matches the user's value-investing preference only at "
-                        "the research stage; business quality, margins, valuation, and management "
-                        "evidence still need confirmation."
-                    ),
-                    claim_type="fit_assessment",
-                    fact_ids=[pref_fact.id],
-                ),
-                CandidateClaim(
-                    text="Short-term price movement alone is insufficient evidence for an investment decision.",
-                    claim_type="unknown",
-                    fact_ids=[history_fact.id],
-                ),
-            ],
-            human_confirmation_points=[
-                "你关注 TSLA 的核心 thesis 是自动驾驶、能源、制造效率，还是纯 EV 销量？",
-                "是否有目标估值纪律和最大回撤承受边界？",
-                "是否允许把 local fixture 升级为 live MCP tool run 后再生成正式 memo？",
-            ],
+                    text=_data_quality_claim_text(fact.metric or "data_quality", fact.text),
+                    claim_type=_data_quality_claim_type(fact.metric),
+                    fact_ids=[fact.id],
+                )
+            )
+
+        human_confirmation_points = [
+            "你关注 TSLA 的核心 thesis 是自动驾驶、能源、制造效率，还是纯 EV 销量？",
+            "是否有目标估值纪律和最大回撤承受边界？",
+            "是否允许把 local fixture 升级为 live MCP tool run 后再生成正式 memo？",
+        ]
+        if data_quality_facts:
+            human_confirmation_points.append("请人工确认 stale、missing 或 conflicting 数据质量限制后，再决定是否生成正式 memo。")
+
+        return SynthesisResult(
+            claims=claims,
+            human_confirmation_points=human_confirmation_points,
             raw_model_output="mock_llm_synthesis_v1",
         )
 
@@ -214,6 +234,7 @@ def build_synthesis_prompt(run: ResearchRunState) -> str:
         "Use only the facts below. Do not introduce new factual claims.\n"
         "Every claim text must be a complete standalone sentence and must not end mid-phrase.\n"
         "Do not recommend buying, selling, adding, trimming, holding, shorting, or clearing a position.\n"
+        "Treat stale_*, missing_*, failure_*, unknown_*, and conflicting_* facts as risk_factor or unknown claims, not as supporting conclusions.\n"
         "Return a single JSON object with this schema:\n"
         "{\n"
         '  "claims": [\n'
@@ -254,6 +275,26 @@ def bind_claims_to_evidence(run: ResearchRunState, synthesis: SynthesisResult) -
             )
         )
     return claims
+
+
+def _data_quality_facts(run: ResearchRunState) -> list[Any]:
+    return [fact for fact in run.facts if _is_data_quality_metric(fact.metric)]
+
+
+def _is_data_quality_metric(metric: str | None) -> bool:
+    if not metric:
+        return False
+    return metric.startswith(("stale_", "missing_", "failure_", "unknown_", "conflicting_"))
+
+
+def _data_quality_claim_type(metric: str | None) -> str:
+    if metric and metric.startswith(("stale_", "failure_", "conflicting_")):
+        return "risk_factor"
+    return "unknown"
+
+
+def _data_quality_claim_text(metric: str, fact_text: str) -> str:
+    return f"Data quality limitation ({metric}): {fact_text}"
 
 
 def make_synthesizer(name: str) -> LLMResearchSynthesizer:
