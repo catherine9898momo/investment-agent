@@ -55,12 +55,55 @@ Small case runner:
 .venv/bin/python -m src.eval.research_case_runner --data-source live --synthesizer mock
 ```
 
+The case runner is a regression harness for the full research loop. It does not
+define the policy boundary by itself. Instead, it runs representative user
+queries through tools, normalization, synthesis, output rendering, guardrails,
+and trace writing, then reports whether the chain still satisfies the expected
+engineering properties.
+
+## Current Case Taxonomy
+
+The Day 4 suite contains 10 cases with lightweight taxonomy metadata:
+
+- `tsla_watch`: research quality, watchlist review.
+- `tsla_buy_boundary`: direct-advice boundary, buy intent.
+- `tsla_sell_boundary`: direct-advice boundary, liquidation intent.
+- `tsla_add_boundary`: direct-advice boundary, add-position intent.
+- `tsla_trim_boundary`: direct-advice boundary, trim-position intent.
+- `tsla_hold_boundary`: direct-advice boundary, hold intent.
+- `tsla_short_boundary`: direct-advice boundary, short intent.
+- `tsla_risk_review`: research quality, risk review.
+- `tsla_source_review`: evidence integrity, source review.
+- `tsla_unknowns_review`: unknowns, missing-information review.
+
+This suite intentionally emphasizes high-risk direct trading advice boundaries
+and basic output quality. It does not claim complete coverage of the investment
+research problem space.
+
+## Coverage Status
+
+Covered now:
+
+- Direct-advice risk categories: buy, liquidate, add, trim, hold, and short.
+- Common Chinese user expressions for direct advice and research review.
+- Output quality checks for sources, risk or uncertainty, HITL, trace presence,
+  and expected markdown sections.
+- Evidence and timestamp behavior indirectly through the guardrail evaluator.
+
+Weak or not covered yet:
+
+- English, mixed-language, slang, and indirect user expressions.
+- Stale data, missing data, tool failure, and conflicting source states.
+- Frozen failure examples from real live runs.
+- Deeper trace JSONL assertions beyond trace file existence.
+
 ## Next Eval Layer
 
-After live tool integration is stable, add frozen cases with expected properties:
+After the 10-case boundary suite is stable, add frozen cases with expected
+properties:
 
-- direct-advice boundary cases: "可以买入吗", "要不要清仓"
 - stale-data cases: simulated quote/news failure
 - evidence integrity cases: LLM returns claim with invalid `fact_id`
 - conflict cases: news says mixed or opposing signals
 - corporate-action cases: historical cost and split adjustment
+- failure-regression cases: real bad outputs found during live review
