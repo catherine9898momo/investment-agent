@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import asdict
-from typing import Any
 
 from src.research.evaluator import evaluate_research_output
-from src.research.models import Claim, Fact, ResearchRunState, Source, new_id, to_json, utc_now_iso
+from src.research.models import Claim, ResearchRunState, to_json
+from src.research.normalizers import normalize_tool_result_bundle
 from src.research.synthesizer import bind_claims_to_evidence, make_synthesizer
 from src.research.tool_provider import ToolResultBundle, make_tool_provider
 from src.research.trace import TraceLogger
@@ -21,38 +21,6 @@ from src.research.trace import TraceLogger
 DEFAULT_QUERY = "帮我看 TSLA 最近是否还值得继续关注。"
 DEFAULT_SYMBOL = "TSLA"
 DEFAULT_COMPANY_QUERY = "Tesla"
-
-
-def _source(kind: str, name: str, tool_name: str, reliability: str = "medium") -> Source:
-    return Source(
-        id=new_id("src"),
-        kind=kind,  # type: ignore[arg-type]
-        name=name,
-        tool_name=tool_name,
-        fetched_at=utc_now_iso(),
-        reliability=reliability,  # type: ignore[arg-type]
-    )
-
-
-def _add_fact(
-    run: ResearchRunState,
-    text: str,
-    source: Source,
-    metric: str | None = None,
-    value: Any | None = None,
-    symbol: str = "TSLA",
-) -> Fact:
-    fact = Fact(
-        id=new_id("fact"),
-        text=text,
-        source_ids=[source.id],
-        observed_at=source.fetched_at,
-        metric=metric,
-        value=value,
-        symbol=symbol,
-    )
-    run.facts.append(fact)
-    return fact
 
 
 def build_research_run(
@@ -72,18 +40,12 @@ def build_research_run(
     bundle = provider.fetch(symbol, company_query, history_days, news_days)
     trace_tool_results(trace, bundle)
 
-    source_kind = "local_fixture" if bundle.data_source == "fixture" else "tool_result"
-    pref_source = _source("user_memory", "User investment preferences", "memory.get_preferences", "high")
-    quote_source = _source(source_kind, f"{bundle.data_source} quote snapshot", "finance.get_quote", "medium")
-    history_source = _source(source_kind, f"{bundle.data_source} price history", "finance.get_history", "medium")
-    news_source = _source(source_kind, f"{bundle.data_source} news snapshot", "news.get_news", "medium")
-    actions_source = _source(source_kind, f"{bundle.data_source} corporate actions", "corporate_actions.get_corporate_actions", "high")
-    run.sources.extend([pref_source, quote_source, history_source, news_source, actions_source])
+    normalized = normalize_tool_result_bundle(bundle, symbol)
+    run.sources.extend(normalized.sources)
+    run.facts.extend(normalized.facts)
+
     for source in run.sources:
         trace.append("source_added", source)
-
-    normalize_tool_results_to_facts(run, bundle, pref_source, quote_source, history_source, news_source, actions_source, symbol)
-
     for fact in run.facts:
         trace.append("fact_added", fact)
 
@@ -115,63 +77,6 @@ def trace_tool_results(trace: TraceLogger, bundle: ToolResultBundle) -> None:
     trace.append("tool_result", {"tool": "finance.get_history", "result": bundle.history})
     trace.append("tool_result", {"tool": "news.get_news", "result": bundle.news})
     trace.append("tool_result", {"tool": "corporate_actions.get_corporate_actions", "result": bundle.corporate_actions})
-
-
-def normalize_tool_results_to_facts(
-    run: ResearchRunState,
-    bundle: ToolResultBundle,
-    pref_source: Source,
-    quote_source: Source,
-    history_source: Source,
-    news_source: Source,
-    actions_source: Source,
-    symbol: str,
-) -> None:
-    quote = bundle.quote
-    history = bundle.history
-    news = bundle.news
-    actions = bundle.corporate_actions
-
-    _add_fact(
-        run,
-        summarize_quote_fact(symbol, quote),
-        quote_source,
-        metric="latest_price",
-        value=quote,
-        symbol=symbol,
-    )
-    _add_fact(
-        run,
-        summarize_history_fact(symbol, history),
-        history_source,
-        metric="five_day_close_range",
-        value=history,
-        symbol=symbol,
-    )
-    _add_fact(
-        run,
-        summarize_news_fact(news),
-        news_source,
-        metric="news_tone",
-        value=news,
-        symbol=symbol,
-    )
-    _add_fact(
-        run,
-        summarize_actions_fact(symbol, actions),
-        actions_source,
-        metric="corporate_actions",
-        value=actions,
-        symbol=symbol,
-    )
-    _add_fact(
-        run,
-        f"User preference snapshot: {bundle.preferences}",
-        pref_source,
-        metric="investment_preferences",
-        value=bundle.preferences,
-        symbol=symbol,
-    )
 
 
 def render_research_output(run: ResearchRunState) -> str:
@@ -226,49 +131,6 @@ def render_research_output(run: ResearchRunState) -> str:
         f"Trace: {run.trace_path}",
     ]
     return "\n".join(sections)
-
-
-def summarize_quote_fact(symbol: str, quote: dict[str, Any]) -> str:
-    if quote.get("error"):
-        return f"{symbol} quote tool returned error: {quote['error']}."
-    return (
-        f"{symbol} quote snapshot: price {quote.get('price')} {quote.get('currency')}, "
-        f"change {quote.get('change_pct')}% vs previous close."
-    )
-
-
-def summarize_history_fact(symbol: str, history: dict[str, Any]) -> str:
-    if history.get("error"):
-        return f"{symbol} history tool returned error: {history['error']}."
-    bars = history.get("bars") or []
-    if not bars:
-        return f"{symbol} history tool returned no bars."
-    closes = [bar.get("close") for bar in bars if bar.get("close") is not None]
-    if not closes:
-        return f"{symbol} history bars did not include close prices."
-    return (
-        f"{symbol} {history.get('period')} close range: {min(closes)} to {max(closes)}; "
-        f"latest close {closes[-1]}."
-    )
-
-
-def summarize_news_fact(news: dict[str, Any]) -> str:
-    if news.get("error"):
-        return f"News tool returned error: {news['error']}."
-    items = news.get("items") or []
-    if not items:
-        return f"News tool returned no recent items for query {news.get('query')}."
-    titles = [item.get("title", "") for item in items[:3]]
-    return f"Recent news snapshot for {news.get('query')} returned {len(items)} items; top titles: {titles}."
-
-
-def summarize_actions_fact(symbol: str, actions: dict[str, Any]) -> str:
-    if actions.get("error"):
-        return f"{symbol} corporate actions tool returned error: {actions['error']}."
-    return (
-        f"{symbol} corporate actions snapshot: splits_count={actions.get('splits_count')}, "
-        f"cumulative_split_factor={actions.get('cumulative_split_factor')}, source={actions.get('source')}."
-    )
 
 
 def main() -> None:

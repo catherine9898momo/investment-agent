@@ -8,6 +8,7 @@ schemas used by the MCP tools.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Callable
 from typing import Any, Literal, Protocol
 
 from src.mcp_servers.corporate_actions_server import get_corporate_actions
@@ -95,15 +96,28 @@ class LiveToolResultProvider:
     data_source: Literal["live"] = "live"
 
     def fetch(self, symbol: str, company_query: str, history_days: int, news_days: int) -> ToolResultBundle:
-        preferences = store.get_all_preferences() or default_preferences()
+        preferences = _safe_tool_result("memory.get_preferences", lambda: store.get_all_preferences() or default_preferences())
         return ToolResultBundle(
             data_source=self.data_source,
             preferences=preferences,
-            quote=_fetch_quote(symbol),
-            history=_fetch_history(symbol, history_days),
-            news=_fetch_news(company_query, news_days, "en"),
-            corporate_actions=get_corporate_actions(symbol, include_dividends=False),
+            quote=_safe_tool_result("finance.get_quote", lambda: _fetch_quote(symbol)),
+            history=_safe_tool_result("finance.get_history", lambda: _fetch_history(symbol, history_days)),
+            news=_safe_tool_result("news.get_news", lambda: _fetch_news(company_query, news_days, "en")),
+            corporate_actions=_safe_tool_result(
+                "corporate_actions.get_corporate_actions",
+                lambda: get_corporate_actions(symbol, include_dividends=False),
+            ),
         )
+
+
+def _safe_tool_result(tool_name: str, fetch: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+    try:
+        result = fetch()
+    except Exception as exc:  # noqa: BLE001 - keep the research loop alive on individual tool failures.
+        return {"error": f"{tool_name} failed: {exc.__class__.__name__}"}
+    if isinstance(result, dict):
+        return result
+    return {"error": f"{tool_name} returned non-dict result: {type(result).__name__}"}
 
 
 def make_tool_provider(name: str) -> ToolResultProvider:
