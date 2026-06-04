@@ -208,6 +208,7 @@ python -m src.agents.cli_chat
 | [ADR 决策记录](docs/showcase/adr/) | 关键工程决策与备选方案对比 |
 | [方法论沉淀](docs/methodology/) | LLM hop 最小化 / 跨 Server 协作 / 知识分层 / 实验决策框架 |
 | [W5 上下文工程实验设计](docs/w5-experiment-design.md) | 0/A/B/C 四策略对比，含 PreCompact hook 注入领域 instructions 杀招 |
+| [P2 投资研究工作台建设方案](docs/P2_INVESTMENT_RESEARCH_WORKBENCH_CN.md) | 投资命题、估值、周期、巴芒评分、thesis memory、市场反馈和监控模块 |
 
 ---
 
@@ -224,6 +225,7 @@ python -m src.agents.cli_chat
 | **P1 Production Research Loop** | live tools → Source/Fact → Anthropic structured synthesis → evidence binding → guardrail → trace → regression report | ✅ Day 1-5 完成（VPS） |
 | P1 Day 6 | Investment memo 输出形态 | 🔜 下一步 |
 | P1 Day 7 | P1 总结文档 + 面试表达材料 | 🔜 下一步 |
+| **P2 投资研究工作台** | thesis memory / valuation normalizer / industry cycle tracker / Buffett-Munger scorecard / market reaction explainer | 🟡 方案已成文 |
 | P2 Investment memory / RAG submodule | holdings / watchlist / filings / notes / RAG schema | 🔲 规划中 |
 | P3 Retrieval-to-Evidence | RAG retrieval → Source/Fact → memo-grade research | 🔲 规划中 |
 
