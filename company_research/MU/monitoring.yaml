@@ -1,0 +1,146 @@
+company:
+  symbol: MU
+  name: Micron Technology
+  market: US
+  sector: Semiconductors
+  company_query: Micron Technology
+  fiscal_year_end_month: 8
+
+source_notes:
+  - Micron FY2026 Q2 earnings release, March 18, 2026.
+  - Micron FY2026 Q2 prepared remarks, March 18, 2026.
+  - Micron investor relations notice, May 27, 2026, for fiscal Q3 earnings on June 24, 2026.
+  - StockAnalysis MU page observed June 4, 2026 for market snapshot.
+
+static_snapshot:
+  as_of: "2026-06-04"
+  next_earnings_date: "2026-06-24"
+  price_context:
+    observed_price: 1008.31
+    observed_change_pct: -6.60
+    observed_market_cap: 1140000000000
+    forward_pe: 11.42
+    trailing_pe: 50.79
+  fy2026_q2:
+    quarter_end: "2026-02-26"
+    revenue_b: 23.86
+    gaap_gross_margin_pct: 74.4
+    non_gaap_gross_margin_pct: 74.9
+    non_gaap_eps: 12.20
+    operating_cash_flow_b: 11.90
+    adjusted_free_cash_flow_b: 6.90
+    capex_net_b: 5.00
+    cash_and_investments_b: 16.70
+    debt_b: 10.10
+    net_cash_b: 6.50
+    inventory_b: 8.30
+    inventory_days: 123
+    dram_inventory_days: 119
+    dram_revenue_b: 18.80
+    dram_revenue_mix_pct: 79
+    nand_revenue_b: 5.00
+    nand_revenue_mix_pct: 21
+    dram_price_seq_change: mid-60s percentage range
+    nand_price_seq_change: high-70s percentage range
+  fy2026_q3_guide:
+    revenue_b: 33.50
+    revenue_tolerance_b: 0.75
+    gross_margin_pct: 81.0
+    gaap_eps: 18.90
+    non_gaap_eps: 19.15
+    eps_tolerance: 0.40
+  capex:
+    fy2026_expected_capex_b_min: 25.00
+    fy2027_equipment_spend: higher year-over-year
+  technology:
+    hbm4_status: volume shipments have begun
+    hbm4e_target: "2027"
+    dram_1gamma_majority_mix_target: mid-calendar 2026
+    nand_g9_majority_mix_target: mid-calendar 2026
+  supply:
+    idaho_initial_wafer_output_target: mid-2027
+    singapore_nand_initial_output_target: second half 2028
+    management_supply_view: supply constraints expected beyond calendar 2026
+  strategic_customer_agreements:
+    first_five_year_sca_signed: true
+
+monitoring_table:
+  - id: hbm_progress
+    category: thesis
+    metric: HBM4/HBM4E progress
+    target_or_question: HBM4 volume shipments continue and HBM4E remains on track for 2027.
+    current_status: HBM4 volume shipments have begun; HBM4E targeted for 2027.
+    signal_if_positive: Customer qualification expands; capacity sold under strategic agreements.
+    signal_if_negative: Product delay, qualification issue, lower HBM demand, or pricing concession.
+    severity: high
+  - id: pricing_power
+    category: industry_cycle
+    metric: DRAM/NAND/HBM pricing
+    target_or_question: Contract and spot prices remain tight without early signs of peak pricing.
+    current_status: FY2026 Q2 DRAM prices rose mid-60s sequentially; NAND rose high-70s sequentially.
+    signal_if_positive: ASPs keep rising or hold despite volume growth.
+    signal_if_negative: Sequential ASP decline or management language shifts from shortage to balance.
+    severity: high
+  - id: gross_margin
+    category: valuation
+    metric: Gross margin
+    target_or_question: FY2026 Q3 gross margin tracks near the 81% guide.
+    current_status: FY2026 Q2 non-GAAP gross margin was 74.9%; Q3 guide is about 81%.
+    signal_if_positive: Margin guide is met or raised with disciplined cost/capex commentary.
+    signal_if_negative: Margin misses guide or reverses faster than revenue.
+    severity: high
+  - id: free_cash_flow
+    category: valuation
+    metric: Free cash flow after capex
+    target_or_question: Strong EPS converts into free cash flow despite rising capex.
+    current_status: FY2026 Q2 adjusted FCF was $6.9B with net capex of $5.0B.
+    signal_if_positive: Operating cash flow covers capex with room for debt reduction or returns.
+    signal_if_negative: Capex absorbs cash flow while EPS remains optically high.
+    severity: high
+  - id: inventory
+    category: industry_cycle
+    metric: Inventory days
+    target_or_question: Inventory days stay healthy; DRAM remains tight.
+    current_status: FY2026 Q2 inventory days were 123; DRAM inventory days were below 120.
+    signal_if_positive: Inventory days stable or falling while revenue rises.
+    signal_if_negative: Inventory builds before demand commentary weakens.
+    severity: medium
+  - id: capex_discipline
+    category: management
+    metric: Capex and supply additions
+    target_or_question: Growth capex is matched to customer-backed demand and strategic agreements.
+    current_status: FY2026 capex expected to exceed $25B; FY2027 equipment spend expected higher.
+    signal_if_positive: Capacity tied to signed agreements, HBM, and constrained nodes.
+    signal_if_negative: Broad capacity expansion without demand commitments.
+    severity: high
+  - id: customer_agreements
+    category: moat
+    metric: Strategic customer agreements
+    target_or_question: SCAs improve visibility and stabilize the business model.
+    current_status: First five-year strategic customer agreement signed.
+    signal_if_positive: More multi-year agreements, better prepayments, or stronger take-or-pay style commitments.
+    signal_if_negative: Customers avoid commitments or renegotiate price downward.
+    severity: high
+  - id: ai_capex
+    category: demand
+    metric: Hyperscaler/GPU AI capex
+    target_or_question: AI capex and GPU shipment outlook remain strong enough to absorb HBM supply.
+    current_status: Thesis depends on AI data center memory demand.
+    signal_if_positive: Hyperscalers raise capex; NVIDIA/AMD platform demand stays supply constrained.
+    signal_if_negative: AI capex cuts, GPU order pushouts, or lower HBM attach expectations.
+    severity: high
+  - id: valuation_compression
+    category: market_reaction
+    metric: Multiple and narrative
+    target_or_question: Market reaction is not simply a transition from supercycle narrative to peak-cycle narrative.
+    current_status: Price exceeded $1,000 and market cap exceeded $1T; expectations are high.
+    signal_if_positive: Pullbacks are expectation-driven while fundamentals strengthen.
+    signal_if_negative: Strong earnings no longer prevent multiple compression because peak fears rise.
+    severity: medium
+
+reporting:
+  default_history_days: 10
+  default_news_days: 7
+  output_formats:
+    - markdown
+    - json
