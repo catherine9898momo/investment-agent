@@ -40,7 +40,7 @@ User Query
  -> Case Runner / Regression Report
 ```
 
-Current status: P1 Day 1-5 completed on the VPS.
+Current status: P1 Day 1-6 completed on the VPS.
 
 ### L3 Agent 2: novel-agent / Long-Context Creative Agent
 
@@ -203,9 +203,9 @@ This mirrors the `novel-agent` production map format: `✅` means the module exi
 +------------------------------+  +------------------------------+
 | ✅ research snapshot     |  | ✅ SQLite memory.db        |
 | ✅ human questions       |  | ✅ config portfolio/watch  |
-| 🟡 memo sections     P0  |  | 🟡 preferences memory  P1  |
-| 🔲 investment memo   P0  |  | 🔲 filings metadata    P2  |
-| 🔲 evidence table    P0  |  | 🔲 document ingestion  P2  |
+| ✅ memo sections     P1  |  | 🟡 preferences memory  P1  |
+| 🟡 investment memo   P1  |  | 🔲 filings metadata    P2  |
+| ✅ evidence table    P1  |  | 🔲 document ingestion  P2  |
 | 🔲 approval gates    P1  |  | 🔲 embeddings/pgvector P2  |
 | 🔲 decision log      P2  |  | 🔲 retrieval->Fact     P2  |
 +------------------------------+  +------------------------------+
@@ -223,7 +223,7 @@ P2 research depth: Investment Memo -> Portfolio/Knowledge Memory -> RAG Retrieva
   Tool Result Normalizer / Live Tool Provider / corporate_actions ground truth
   Mock + Anthropic structured synthesizers
   Evidence Binder / Guardrail Evaluator / Trace JSONL
-  Research Snapshot renderer
+  Research Snapshot renderer / Investment Memo renderer / Evidence Table
   10 boundary cases + 3 frozen data-quality cases
 
 🟡 Partial:
@@ -235,7 +235,6 @@ P2 research depth: Investment Memo -> Portfolio/Knowledge Memory -> RAG Retrieva
   preferences and SQLite memory foundation
 
 🔲 Missing:
-  Investment Memo renderer / Evidence Table
   explicit Tool Budget / Provider Registry / Degradation policy
   richer trace assertions / live failure regression cases
   external URL citations and provider reliability matrix
@@ -262,7 +261,8 @@ P1 - Regression and data-quality control
   3. stale/missing/conflict facts
   4. frozen data-quality cases
   5. trace-to-eval records
-  Status: 🟡 Partial / ✅ Done via P1 Day 4-5; remaining live failure cases and richer trace assertions
+  6. memo trace event assertion
+  Status: 🟡 Partial / ✅ Done via P1 Day 4-6; remaining live failure cases and richer trace assertions
 
 P2 - Memo-grade research experience
   1. Investment Memo renderer
@@ -270,7 +270,7 @@ P2 - Memo-grade research experience
   3. richer citation surface
   4. explicit HITL gates
   5. decision log
-  Status: 🔜 Next, starts P1 Day 6
+  Status: 🟡 Day 6 completed memo shape; P2 still needs richer citations, explicit HITL gates, and RAG-backed memo
 
 P3 - Portfolio memory and RAG
   1. holdings/watchlist/preference schema hardening
@@ -296,7 +296,7 @@ P3 - Portfolio memory and RAG
 | P1 Day 3 | Live + Anthropic structured synthesis | Completed, commit `ff34aa4` |
 | P1 Day 4 | Case Runner expanded to 10 boundary cases | Completed, commit `c2eac74` |
 | P1 Day 5 | Freshness / missing data / conflict / unknown minimal rules | Completed, commit `59d398a` |
-| P1 Day 6 | Investment memo output shape | Next |
+| P1 Day 6 | Investment memo output shape | Completed, uncommitted, awaiting user review |
 | P1 Day 7 | P1 summary docs + interview explanation material | Next |
 | P2 | investment-agent portfolio / knowledge memory submodule schema and RAG ingestion plan | Planned |
 | P3 | Retrieval-to-Source/Fact integration and memo-grade company research | Planned |
@@ -328,10 +328,10 @@ Keep this backlog visible. Do not collapse it into the Day 6/Day 7 plan; those a
 
 ## Current P1 Verification Snapshot
 
-Latest recorded VPS verification from Day 5:
+Latest recorded VPS verification from Day 6:
 
 ```bash
-.venv/bin/ruff check src/research/normalizers.py src/agents/research_demo.py src/research/synthesizer.py src/eval/research_case_runner.py src/research/test_normalizers.py src/research/test_synthesizer.py
+.venv/bin/ruff check src/agents/research_demo.py src/research/*.py src/eval/research_case_runner.py
 .venv/bin/python -m pytest
 .venv/bin/python -m src.eval.research_case_runner --data-source fixture --synthesizer mock --suite all
 .venv/bin/python -m src.eval.research_case_runner --data-source live --synthesizer mock --suite boundary
@@ -339,9 +339,10 @@ Latest recorded VPS verification from Day 5:
 
 Observed:
 
-- `pytest`: 17 passed.
-- fixture + mock all suite: 13/13 PASS.
-- live + mock boundary suite: 10/10 PASS.
+- `pytest`: 18 passed.
+- fixture + mock all suite: 13/13 PASS, with `memo_trace=True` for every case.
+- live + mock boundary suite: 10/10 PASS, with `memo_trace=True` for every case.
+- fixture + mock demo: Investment Research Memo rendered, Guardrail PASS.
 - live + anthropic was previously validated on Day 3 with Guardrail PASS.
 
 ## What Is Done vs Not Done
@@ -360,7 +361,6 @@ Done:
 
 Not done yet:
 
-- Investment memo renderer.
 - Durable company research document store.
 - Annual report / filing ingestion.
 - Embedding and pgvector retrieval.
@@ -379,7 +379,7 @@ Use this schedule as the weekly check-in baseline. At the start of each work ses
 
 | Date | Milestone | Expected Output | Resume Readiness |
 |---|---|---|---|
-| 2026-06-04 Thu | P1 Day 6: Investment Memo output shape | memo renderer, evidence table, freshness notes, unknowns/conflicts, trace reference | Not yet; still implementation-heavy |
+| 2026-06-04 Thu | P1 Day 6: Investment Memo output shape | memo renderer, evidence table, freshness notes, unknowns/conflicts, trace reference | Completed; awaiting review before commit |
 | 2026-06-05 Fri | P1 Day 7: P1 summary and interview material | P1 summary doc, architecture explanation, 3-minute pitch, resume bullets | Close to v1 |
 | 2026-06-06 Sat | Resume package v1 cleanup | README/showcase/resume snippet updated, final demo commands verified | Ready for final review |
 | 2026-06-07 Sun | First application batch | Apply to first Agent / AI application roles with P1 story | Start applying v1 |
@@ -404,6 +404,8 @@ At each new task session, answer:
 ## Next Work
 
 ### Day 6: Investment Memo Output Shape
+
+Status: completed, awaiting user review / commit.
 
 Goal: convert the current research snapshot into a memo-shaped output without turning it into trading advice.
 

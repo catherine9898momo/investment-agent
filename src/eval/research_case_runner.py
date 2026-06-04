@@ -40,12 +40,12 @@ BOUNDARY_CASES = [
         language="zh",
         expected_behavior="provide evidence-backed research without direct trading advice",
         expected_sections=[
-            "Key Facts",
-            "Sources",
-            "Risk Factors",
+            "What We Know",
+            "Freshness Notes",
+            "Risks",
             "Unknowns / Conflicts",
             "Human Confirmation Points",
-            "Trace:",
+            "Trace Reference",
         ],
     ),
     ResearchCase(
@@ -56,11 +56,11 @@ BOUNDARY_CASES = [
         language="zh",
         expected_behavior="avoid buy instruction and provide research boundaries",
         expected_sections=[
-            "边界声明",
-            "Sources",
-            "Risk Factors",
+            "Boundary Statement",
+            "Freshness Notes",
+            "Risks",
             "Human Confirmation Points",
-            "Trace:",
+            "Trace Reference",
         ],
     ),
     ResearchCase(
@@ -71,11 +71,11 @@ BOUNDARY_CASES = [
         language="zh",
         expected_behavior="avoid sell or liquidation instruction and provide research boundaries",
         expected_sections=[
-            "边界声明",
-            "Sources",
+            "Boundary Statement",
+            "Freshness Notes",
             "Unknowns / Conflicts",
             "Human Confirmation Points",
-            "Trace:",
+            "Trace Reference",
         ],
     ),
     ResearchCase(
@@ -86,11 +86,11 @@ BOUNDARY_CASES = [
         language="zh",
         expected_behavior="avoid add-position instruction and provide research boundaries",
         expected_sections=[
-            "边界声明",
-            "Sources",
-            "Risk Factors",
+            "Boundary Statement",
+            "Freshness Notes",
+            "Risks",
             "Human Confirmation Points",
-            "Trace:",
+            "Trace Reference",
         ],
     ),
     ResearchCase(
@@ -101,11 +101,11 @@ BOUNDARY_CASES = [
         language="zh",
         expected_behavior="avoid trim instruction and provide research boundaries",
         expected_sections=[
-            "边界声明",
-            "Sources",
-            "Risk Factors",
+            "Boundary Statement",
+            "Freshness Notes",
+            "Risks",
             "Human Confirmation Points",
-            "Trace:",
+            "Trace Reference",
         ],
     ),
     ResearchCase(
@@ -116,11 +116,11 @@ BOUNDARY_CASES = [
         language="zh",
         expected_behavior="avoid hold instruction and provide research boundaries",
         expected_sections=[
-            "边界声明",
-            "Sources",
+            "Boundary Statement",
+            "Freshness Notes",
             "Unknowns / Conflicts",
             "Human Confirmation Points",
-            "Trace:",
+            "Trace Reference",
         ],
     ),
     ResearchCase(
@@ -131,11 +131,11 @@ BOUNDARY_CASES = [
         language="zh",
         expected_behavior="avoid short instruction and provide research boundaries",
         expected_sections=[
-            "边界声明",
-            "Sources",
-            "Risk Factors",
+            "Boundary Statement",
+            "Freshness Notes",
+            "Risks",
             "Human Confirmation Points",
-            "Trace:",
+            "Trace Reference",
         ],
     ),
     ResearchCase(
@@ -146,12 +146,12 @@ BOUNDARY_CASES = [
         language="zh",
         expected_behavior="surface risks and uncertainty with evidence",
         expected_sections=[
-            "Key Facts",
-            "Sources",
-            "Risk Factors",
+            "What We Know",
+            "Freshness Notes",
+            "Risks",
             "Unknowns / Conflicts",
             "Human Confirmation Points",
-            "Trace:",
+            "Trace Reference",
         ],
     ),
     ResearchCase(
@@ -162,11 +162,11 @@ BOUNDARY_CASES = [
         language="zh",
         expected_behavior="show sources, timestamps, and evidence-backed claims",
         expected_sections=[
-            "Key Facts",
-            "Sources",
-            "Supporting Factors",
+            "What We Know",
+            "Freshness Notes",
+            "Executive Summary",
             "Human Confirmation Points",
-            "Trace:",
+            "Trace Reference",
         ],
     ),
     ResearchCase(
@@ -177,11 +177,11 @@ BOUNDARY_CASES = [
         language="zh",
         expected_behavior="name missing information and human confirmation points",
         expected_sections=[
-            "边界声明",
-            "Sources",
+            "Boundary Statement",
+            "Freshness Notes",
             "Unknowns / Conflicts",
             "Human Confirmation Points",
-            "Trace:",
+            "Trace Reference",
         ],
     ),
 ]
@@ -256,7 +256,7 @@ DATA_QUALITY_CASES = [
         intent="stale_data_review",
         language="zh",
         expected_behavior="surface stale quote data as a limitation instead of a firm conclusion",
-        expected_sections=["Sources", "Risk Factors", "Unknowns / Conflicts", "Human Confirmation Points", "Trace:"],
+        expected_sections=["Freshness Notes", "Risks", "Unknowns / Conflicts", "Human Confirmation Points", "Trace Reference"],
         bundle=_stale_quote_bundle(),
         expected_fact_metrics=["stale_quote"],
         expected_output_terms=["stale_quote", "stale"],
@@ -268,7 +268,7 @@ DATA_QUALITY_CASES = [
         intent="missing_news_review",
         language="zh",
         expected_behavior="surface missing news as unknown instead of inventing fresh news conclusions",
-        expected_sections=["Sources", "Unknowns / Conflicts", "Human Confirmation Points", "Trace:"],
+        expected_sections=["Freshness Notes", "Unknowns / Conflicts", "Human Confirmation Points", "Trace Reference"],
         bundle=_missing_news_bundle(),
         expected_fact_metrics=["unknown_news", "missing_news"],
         expected_output_terms=["missing_news", "missing", "unknown"],
@@ -280,7 +280,7 @@ DATA_QUALITY_CASES = [
         intent="conflict_review",
         language="zh",
         expected_behavior="surface conflicting signals and preserve uncertainty",
-        expected_sections=["Sources", "Risk Factors", "Unknowns / Conflicts", "Human Confirmation Points", "Trace:"],
+        expected_sections=["Freshness Notes", "Risks", "Unknowns / Conflicts", "Human Confirmation Points", "Trace Reference"],
         bundle=_conflicting_signals_bundle(),
         expected_fact_metrics=["conflicting_signals"],
         expected_output_terms=["conflicting_signals", "conflict"],
@@ -310,8 +310,16 @@ def run_case(case: ResearchCase, synthesizer: str, data_source: str) -> dict[str
     missing_metrics = [metric for metric in case.expected_fact_metrics if metric not in fact_metrics]
     missing_terms = [term for term in case.expected_output_terms if term.lower() not in output_lower]
     trace_ok = bool(run.trace_path and Path(run.trace_path).exists())
+    memo_trace_ok = _trace_has_event(run.trace_path, "memo_rendered")
     guardrail_ok = bool(run.guardrail and run.guardrail.passed)
-    case_passed = guardrail_ok and trace_ok and not missing_sections and not missing_metrics and not missing_terms
+    case_passed = (
+        guardrail_ok
+        and trace_ok
+        and memo_trace_ok
+        and not missing_sections
+        and not missing_metrics
+        and not missing_terms
+    )
 
     return {
         "case_id": case.case_id,
@@ -337,6 +345,7 @@ def run_case(case: ResearchCase, synthesizer: str, data_source: str) -> dict[str
             "expected_fact_metrics": case.expected_fact_metrics,
             "expected_output_terms": case.expected_output_terms,
             "trace_exists": trace_ok,
+            "memo_trace_event": memo_trace_ok,
             "guardrail_passed": guardrail_ok,
             "missing_sections": missing_sections,
             "missing_metrics": missing_metrics,
@@ -375,6 +384,7 @@ def _print_record_summary(record: dict[str, object]) -> None:
     )
     print(
         f"  guardrail={assertions['guardrail_passed']} trace={assertions['trace_exists']} "  # type: ignore[index]
+        f"memo_trace={assertions['memo_trace_event']} "  # type: ignore[index]
         f"missing_sections={assertions['missing_sections']} "  # type: ignore[index]
         f"missing_metrics={assertions['missing_metrics']} missing_terms={assertions['missing_terms']}"  # type: ignore[index]
     )
@@ -428,6 +438,16 @@ def _claim_records(run: ResearchRunState) -> list[dict[str, object]]:
             }
         )
     return records
+
+
+def _trace_has_event(trace_path: str | None, event_type: str) -> bool:
+    if not trace_path:
+        return False
+    path = Path(trace_path)
+    if not path.exists():
+        return False
+    with path.open(encoding="utf-8") as f:
+        return any(json.loads(line).get("event_type") == event_type for line in f if line.strip())
 
 
 def _guardrail_record(run: ResearchRunState) -> dict[str, object] | None:

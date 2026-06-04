@@ -11,7 +11,8 @@ import argparse
 from dataclasses import asdict
 
 from src.research.evaluator import evaluate_research_output
-from src.research.models import Claim, ResearchRunState, to_json
+from src.research.memo_renderer import memo_trace_payload, render_investment_memo
+from src.research.models import ResearchRunState, to_json
 from src.research.normalizers import normalize_tool_result_bundle
 from src.research.synthesizer import bind_claims_to_evidence, make_synthesizer
 from src.research.tool_provider import ToolResultBundle, make_tool_provider
@@ -74,6 +75,7 @@ def build_research_run_from_bundle(
         trace.append("claim_added", claim)
 
     output = render_research_output(run)
+    trace.append("memo_rendered", memo_trace_payload(run))
     guardrail = evaluate_research_output(run, output)
     run.guardrail = guardrail
     run.final_output = output
@@ -93,58 +95,7 @@ def trace_tool_results(trace: TraceLogger, bundle: ToolResultBundle) -> None:
 
 
 def render_research_output(run: ResearchRunState) -> str:
-    source_lines = [
-        f"- {source.id}: {source.name}; tool={source.tool_name}; fetched_at={source.fetched_at}; reliability={source.reliability}"
-        for source in run.sources
-    ]
-    fact_lines = [
-        f"- {fact.text} 来源: {', '.join(fact.source_ids)}; 时间: {fact.observed_at}"
-        for fact in run.facts
-    ]
-    supporting = [claim for claim in run.claims if claim.claim_type == "supporting_factor"]
-    risks = [claim for claim in run.claims if claim.claim_type == "risk_factor"]
-    fit = [claim for claim in run.claims if claim.claim_type == "fit_assessment"]
-    unknowns = [claim for claim in run.claims if claim.claim_type == "unknown"]
-
-    def claim_lines(claims: list[Claim]) -> list[str]:
-        lines = []
-        for claim in claims:
-            evidence_refs = [f"{e.fact_id}/{e.source_id}" for e in claim.evidence]
-            lines.append(f"- {claim.text} 证据: {', '.join(evidence_refs)}")
-        return lines
-
-    sections = [
-        "# Investment Research Snapshot",
-        "",
-        "边界声明: 这是一份研究摘要，不是买入、卖出、加仓、减仓或清仓建议。",
-        "",
-        "## Key Facts",
-        *fact_lines,
-        "",
-        "## Sources",
-        *source_lines,
-        "",
-        "## Supporting Factors",
-        *claim_lines(supporting),
-        "",
-        "## Risk Factors",
-        *claim_lines(risks),
-        "- 风险: 行情、新闻和 corporate actions 都有数据源时效和覆盖边界；正式决策前需要人工复核关键来源。",
-        "",
-        "## Unknowns / Conflicts",
-        *claim_lines(unknowns),
-        "- 未知项: 最新财报、交付量、毛利率、自由现金流、估值区间、管理层说明和多源新闻冲突尚未核验。",
-        "",
-        "## Match With User Principles",
-        *claim_lines(fit),
-        "",
-        "## Human Confirmation Points",
-        *[f"- {point}" for point in run.human_confirmation_points],
-        "",
-        f"Trace: {run.trace_path}",
-    ]
-    return "\n".join(sections)
-
+    return render_investment_memo(run)
 
 def main() -> None:
     parser = argparse.ArgumentParser()

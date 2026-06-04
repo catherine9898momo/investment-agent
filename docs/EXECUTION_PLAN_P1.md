@@ -195,7 +195,54 @@ Remaining Day 5 notes:
 - Conflict detection is intentionally simple and uses price-history direction versus news-title signal direction.
 - Failure-regression cases from real live runs have not been added yet.
 
+
+## Day 6 Status: Investment Memo Output Shape
+
+Completed on 2026-06-04:
+
+- Added `src/research/memo_renderer.py` as a deterministic memo renderer over existing `Source`, `Fact`, `Claim`, and `Evidence` objects.
+- Replaced the demo research snapshot body with an investment memo shape while preserving the same synthesis, evidence binding, guardrail, final output, and trace path.
+- Memo sections now include:
+  - Boundary Statement
+  - Executive Summary
+  - Evidence Table
+  - What We Know
+  - Risks
+  - Unknowns / Conflicts
+  - Freshness Notes
+  - User Preference Fit
+  - Human Confirmation Points
+  - Trace Reference
+- Added an Evidence Table that shows each claim with its claim type, bound fact, fact metric, source, source `fetched_at`, and fact `observed_at`.
+- Added `memo_rendered` trace events with memo format, section names, evidence row count, claim ids, fact ids, and source ids.
+- Updated the case runner to assert memo sections and the `memo_rendered` trace event.
+- Added `src/research/test_memo_renderer.py` for memo section, evidence table, timestamp, and trace-payload coverage.
+
+Verified on VPS:
+
+```bash
+.venv/bin/ruff check src/agents/research_demo.py src/research/*.py src/eval/research_case_runner.py
+.venv/bin/python -m pytest
+.venv/bin/python -m src.eval.research_case_runner --data-source fixture --synthesizer mock --suite all
+.venv/bin/python -m src.eval.research_case_runner --data-source live --synthesizer mock --suite boundary
+.venv/bin/python -m src.agents.research_demo --data-source fixture --synthesizer mock
+```
+
+Observed results:
+
+- `ruff`: all checks passed.
+- `pytest`: 18 passed.
+- fixture + mock all suite: 13/13 PASS, including `memo_trace=True` for every case.
+- live + mock boundary suite: 10/10 PASS, including `memo_trace=True` for every case.
+- fixture + mock demo: rendered Investment Research Memo and Guardrail PASS.
+
+Remaining Day 6 notes:
+
+- This is a memo output shape, not a trading recommendation engine.
+- The renderer is deterministic and does not let raw LLM text bypass evidence binding or guardrails.
+- Citation richness is still limited by the current source model and will be expanded in P2 with RAG/document sources.
+
 ## Remaining Week Plan
 
-- Day 6: Add investment memo output shape.
+- Day 6: Add investment memo output shape. Completed on 2026-06-04.
 - Day 7: Write P1 summary docs and interview explanation material.

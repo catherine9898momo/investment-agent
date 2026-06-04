@@ -42,7 +42,7 @@ User Query
  -> Case Runner / Regression Report
 ```
 
-当前状态：VPS 上已经完成 P1 Day 1-5。
+当前状态：VPS 上已经完成 P1 Day 1-6。
 
 ### L3 Agent 2：novel-agent / Long-Context Creative Agent
 
@@ -204,9 +204,9 @@ Trace = 可回放的 JSONL 审计记录
 +------------------------------+  +------------------------------+
 | ✅ research snapshot     |  | ✅ SQLite memory.db        |
 | ✅ human questions       |  | ✅ config portfolio/watch  |
-| 🟡 memo sections     P0  |  | 🟡 preferences memory  P1  |
-| 🔲 investment memo   P0  |  | 🔲 filings metadata    P2  |
-| 🔲 evidence table    P0  |  | 🔲 document ingestion  P2  |
+| ✅ memo sections     P1  |  | 🟡 preferences memory  P1  |
+| 🟡 investment memo   P1  |  | 🔲 filings metadata    P2  |
+| ✅ evidence table    P1  |  | 🔲 document ingestion  P2  |
 | 🔲 approval gates    P1  |  | 🔲 embeddings/pgvector P2  |
 | 🔲 decision log      P2  |  | 🔲 retrieval->Fact     P2  |
 +------------------------------+  +------------------------------+
@@ -224,7 +224,7 @@ P2 research depth: Investment Memo -> Portfolio/Knowledge Memory -> RAG Retrieva
   Tool Result Normalizer / Live Tool Provider / corporate_actions ground truth
   Mock + Anthropic structured synthesizers
   Evidence Binder / Guardrail Evaluator / Trace JSONL
-  Research Snapshot renderer
+  Research Snapshot renderer / Investment Memo renderer / Evidence Table
   10 条 boundary cases + 3 条 frozen data-quality cases
 
 🟡 部分完成：
@@ -236,7 +236,6 @@ P2 research depth: Investment Memo -> Portfolio/Knowledge Memory -> RAG Retrieva
   preferences 和 SQLite memory foundation
 
 🔲 尚未完成：
-  Investment Memo renderer / Evidence Table
   显式 Tool Budget / Provider Registry / Degradation policy
   更丰富的 trace assertions / live failure regression cases
   external URL citations 和 provider reliability matrix
@@ -263,7 +262,8 @@ P1 - Regression 与数据质量控制
   3. stale/missing/conflict facts
   4. frozen data-quality cases
   5. trace-to-eval records
-  状态：🟡 部分完成 / ✅ Day 4-5 已完成主要切片；仍缺 live failure cases 和更丰富的 trace assertions
+  6. memo trace event assertion
+  状态：🟡 部分完成 / ✅ Day 4-6 已完成主要切片；仍缺 live failure cases 和更丰富的 trace assertions
 
 P2 - Memo-grade research experience
   1. Investment Memo renderer
@@ -271,7 +271,7 @@ P2 - Memo-grade research experience
   3. richer citation surface
   4. explicit HITL gates
   5. decision log
-  状态：🔜 下一步，从 P1 Day 6 开始
+  状态：🟡 Day 6 已完成 memo shape；P2 仍需 richer citation、explicit HITL gates 和 RAG-backed memo
 
 P3 - Portfolio memory and RAG
   1. holdings/watchlist/preference schema hardening
@@ -297,7 +297,7 @@ P3 - Portfolio memory and RAG
 | P1 Day 3 | Live + Anthropic structured synthesis | 已完成，commit `ff34aa4` |
 | P1 Day 4 | Case Runner expanded to 10 boundary cases | 已完成，commit `c2eac74` |
 | P1 Day 5 | Freshness / missing data / conflict / unknown minimal rules | 已完成，commit `59d398a` |
-| P1 Day 6 | Investment memo output shape | 下一步 |
+| P1 Day 6 | Investment memo output shape | 已完成，未提交，等待用户 review |
 | P1 Day 7 | P1 summary docs + interview explanation material | 下一步 |
 | P2 | investment-agent portfolio / knowledge memory submodule schema and RAG ingestion plan | 计划中 |
 | P3 | Retrieval-to-Source/Fact integration and memo-grade company research | 计划中 |
@@ -328,10 +328,10 @@ P3 - Portfolio memory and RAG
 
 ## 当前 P1 验证快照
 
-Day 5 在 VPS 上记录的最新验证命令：
+Day 6 在 VPS 上记录的最新验证命令：
 
 ```bash
-.venv/bin/ruff check src/research/normalizers.py src/agents/research_demo.py src/research/synthesizer.py src/eval/research_case_runner.py src/research/test_normalizers.py src/research/test_synthesizer.py
+.venv/bin/ruff check src/agents/research_demo.py src/research/*.py src/eval/research_case_runner.py
 .venv/bin/python -m pytest
 .venv/bin/python -m src.eval.research_case_runner --data-source fixture --synthesizer mock --suite all
 .venv/bin/python -m src.eval.research_case_runner --data-source live --synthesizer mock --suite boundary
@@ -339,9 +339,10 @@ Day 5 在 VPS 上记录的最新验证命令：
 
 观测结果：
 
-- `pytest`：17 passed。
-- fixture + mock all suite：13/13 PASS。
-- live + mock boundary suite：10/10 PASS。
+- `pytest`：18 passed。
+- fixture + mock all suite：13/13 PASS，且每条 case 都包含 `memo_trace=True`。
+- live + mock boundary suite：10/10 PASS，且每条 case 都包含 `memo_trace=True`。
+- fixture + mock demo：Investment Research Memo rendered，Guardrail PASS。
 - live + anthropic 已在 Day 3 验证过，Guardrail PASS。
 
 ## 已完成与未完成
@@ -360,7 +361,6 @@ Day 5 在 VPS 上记录的最新验证命令：
 
 尚未完成：
 
-- Investment memo renderer。
 - 持久化 company research document store。
 - Annual report / filing ingestion。
 - Embedding 与 pgvector retrieval。
@@ -378,7 +378,7 @@ Day 5 在 VPS 上记录的最新验证命令：
 
 | 日期 | 里程碑 | 预期产物 | 简历投递 readiness |
 |---|---|---|---|
-| 2026-06-04 Thu | P1 Day 6：Investment Memo output shape | memo renderer、evidence table、freshness notes、unknowns/conflicts、trace reference | 暂不投递；仍以实现为主 |
+| 2026-06-04 Thu | P1 Day 6：Investment Memo output shape | memo renderer、evidence table、freshness notes、unknowns/conflicts、trace reference | 已完成；等待 review 后提交 |
 | 2026-06-05 Fri | P1 Day 7：P1 summary 与 interview material | P1 summary doc、architecture explanation、3-minute pitch、resume bullets | 接近 v1 |
 | 2026-06-06 Sat | Resume package v1 cleanup | README/showcase/resume snippet 更新，final demo commands 验证 | 可进入最终 review |
 | 2026-06-07 Sun | First application batch | 用 P1 story 投递第一批 Agent / AI application roles | 开始 v1 投递 |
@@ -403,6 +403,8 @@ Day 5 在 VPS 上记录的最新验证命令：
 ## 下一步工作
 
 ### Day 6：Investment Memo Output Shape
+
+状态：已完成，等待用户 review / commit。
 
 目标：把当前 research snapshot 转成 memo 形态，但不能变成交易建议。
 
