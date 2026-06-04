@@ -1,7 +1,8 @@
 # P1 Production Research Loop Execution Plan
 
 Last updated: 2026-06-03
-Environment: VPS only, `/opt/agents/investment-agent`, deploy user, VS Code Remote SSH workflow.
+Panorama: `docs/PROJECT_PANORAMA_AND_MILESTONES_CN.md` (中文), `docs/PROJECT_PANORAMA_AND_MILESTONES.md` (EN)
+Environment: VPS only, `/opt/agents/investment-agent`, deploy user. Codex may run directly on the VPS or through Remote SSH.
 
 ## Operating Rules
 

@@ -4,7 +4,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.11+-blue)]()
 [![MCP](https://img.shields.io/badge/protocol-MCP-orange)]()
-[![Status](https://img.shields.io/badge/status-W4%20complete%20·%20W5%20stateful%20%2B%20context%20engineering-green)]()
+[![Status](https://img.shields.io/badge/status-P1%20Day%205%20complete%20·%20research%20loop%20guardrailed-green)]()
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)]()
 
 个人项目 · 对标 BOSS 直聘 Agent 工程师 JD（金融垂直 + 上下文工程 + 记忆系统）
@@ -17,10 +17,10 @@
 - **跨 Server 拆股事件判别 4/4**（NVDA / TSLA / AAPL / 09988.HK），description A/B 实验 **10/10**。
 - **反例闭环 24h** — 发现 LLM 训练知识不稳定（同日两次 session 输出 15:1 vs 3:1），设计 `corporate_actions_server` ground truth 兜底，复权后成本 $400→$80、浮盈方向 -64%→+457%。
 - **W3 SDK 编排回归测试 9/9** — claude-agent-sdk + PreToolUse/PostToolUse Hook + 9 个 fixture case 全过（正样本 + 负样本）。
-- **W5 上下文工程进行中** — SDK 内置 auto-compact 测出"通用摘要丢失领域关键事实"问题，方案：**PreCompact hook 注入领域 instructions 保留拆股 / 复权 / 工具结果数据**。
+- **P1 Production Research Loop 已推进到 Day 5** — live tools → Source/Fact normalizer → Anthropic structured synthesis → evidence binding → guardrail → trace → 13-case regression suite。
 - **方法论沉淀**：触发器 / 具体事实 / 决策建议 **三层知识分层设计模式** + **LLM hop 最小化**原则。
 
-📄 [一页纸 Case Study](docs/showcase/case-study-corporate-actions.md) · 💼 [简历段落](docs/showcase/resume-snippet.md) · 🧪 [W5 实验设计](docs/w5-experiment-design.md) · 🧠 [方法论库](docs/methodology/)
+📍 [项目全景图与里程碑](docs/PROJECT_PANORAMA_AND_MILESTONES_CN.md) / [EN](docs/PROJECT_PANORAMA_AND_MILESTONES.md) · 📄 [一页纸 Case Study](docs/showcase/case-study-corporate-actions.md) · 💼 [简历段落](docs/showcase/resume-snippet.md) · 🧪 [P1 执行计划](docs/EXECUTION_PLAN_P1.md) · 🧠 [方法论库](docs/methodology/)
 
 ---
 
@@ -220,9 +220,12 @@ python -m src.agents.cli_chat
 | W2 D5 反例闭环 | corporate_actions_server + Case D' 验证 | ✅ 2026-05-14（24h 闭环） |
 | W3 SDK 编排 | weekly_analyst.py + Hook 工程化 + 回归测试 9/9 | ✅ 2026-05-19 |
 | W4 showcase 资产 | 简历段落 / Case Study / 4 架构图 / 5 ADR / 4 方法论 | ✅ 2026-05-20（提前 4 天） |
-| **W5 上下文工程** | 0 观测 + A 滑动窗口 + B SDK 默认 + C PreCompact hook 注入 | 🚧 2026-05-22 D2 起步（策略 0 baseline 跑通） |
-| W6 分层记忆系统 | 短期 + 长期 + 实体（SQLite）+ 情景（时间序） | 🔲 投递后启动 |
-| W7 多 Agent 工作流 | LangGraph Supervisor-Worker + Subagent isolation + RAGAs | 🔲 投递后加分项 |
+| W5 上下文工程 | stateful / synthetic user / context compression learning track | 🟡 历史学习线，部分完成 |
+| **P1 Production Research Loop** | live tools → Source/Fact → Anthropic structured synthesis → evidence binding → guardrail → trace → regression report | ✅ Day 1-5 完成（VPS） |
+| P1 Day 6 | Investment memo 输出形态 | 🔜 下一步 |
+| P1 Day 7 | P1 总结文档 + 面试表达材料 | 🔜 下一步 |
+| P2 Investment memory / RAG submodule | holdings / watchlist / filings / notes / RAG schema | 🔲 规划中 |
+| P3 Retrieval-to-Evidence | RAG retrieval → Source/Fact → memo-grade research | 🔲 规划中 |
 
 ---
 
