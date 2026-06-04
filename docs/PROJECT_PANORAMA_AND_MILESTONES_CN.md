@@ -297,8 +297,8 @@ P3 - Portfolio memory and RAG
 | P1 Day 3 | Live + Anthropic structured synthesis | 已完成，commit `ff34aa4` |
 | P1 Day 4 | Case Runner expanded to 10 boundary cases | 已完成，commit `c2eac74` |
 | P1 Day 5 | Freshness / missing data / conflict / unknown minimal rules | 已完成，commit `59d398a` |
-| P1 Day 6 | Investment memo output shape | 已完成，未提交，等待用户 review |
-| P1 Day 7 | P1 summary docs + interview explanation material | 下一步 |
+| P1 Day 6 | Investment memo output shape | 已完成，commit `e269555` |
+| P1 Day 7 | P1 summary docs + interview explanation material | 进行中，双语主文档 `docs/P1_FINAL_NARRATIVE_CN.md` / `docs/P1_FINAL_NARRATIVE.md` |
 | P2 | investment-agent portfolio / knowledge memory submodule schema and RAG ingestion plan | 计划中 |
 | P3 | Retrieval-to-Source/Fact integration and memo-grade company research | 计划中 |
 | novel-agent P0 | Writer context pack + chapter state machine | 在独立 repo 中计划 |
@@ -378,7 +378,7 @@ Day 6 在 VPS 上记录的最新验证命令：
 
 | 日期 | 里程碑 | 预期产物 | 简历投递 readiness |
 |---|---|---|---|
-| 2026-06-04 Thu | P1 Day 6：Investment Memo output shape | memo renderer、evidence table、freshness notes、unknowns/conflicts、trace reference | 已完成；等待 review 后提交 |
+| 2026-06-04 Thu | P1 Day 6：Investment Memo output shape | memo renderer、evidence table、freshness notes、unknowns/conflicts、trace reference | 已完成，commit `e269555` |
 | 2026-06-05 Fri | P1 Day 7：P1 summary 与 interview material | P1 summary doc、architecture explanation、3-minute pitch、resume bullets | 接近 v1 |
 | 2026-06-06 Sat | Resume package v1 cleanup | README/showcase/resume snippet 更新，final demo commands 验证 | 可进入最终 review |
 | 2026-06-07 Sun | First application batch | 用 P1 story 投递第一批 Agent / AI application roles | 开始 v1 投递 |
@@ -404,7 +404,7 @@ Day 6 在 VPS 上记录的最新验证命令：
 
 ### Day 6：Investment Memo Output Shape
 
-状态：已完成，等待用户 review / commit。
+状态：已完成，commit `e269555`。
 
 目标：把当前 research snapshot 转成 memo 形态，但不能变成交易建议。
 
@@ -436,12 +436,14 @@ Day 6 在 VPS 上记录的最新验证命令：
 ## 新 Codex 会话阅读顺序
 
 1. `docs/PROJECT_PANORAMA_AND_MILESTONES_CN.md`（中文全景图，优先读）
-2. `docs/PROJECT_PANORAMA_AND_MILESTONES.md`（英文镜像）
-3. `docs/EXECUTION_PLAN_P1.md`
-4. `docs/RESEARCH_CASE_EVAL.md`
-5. `src/agents/research_demo.py`
-6. `src/research/models.py`
-7. `src/research/normalizers.py`
-8. `src/research/synthesizer.py`
-9. `src/research/evaluator.py`
-10. `src/eval/research_case_runner.py`
+2. `docs/P1_FINAL_NARRATIVE_CN.md`（Day 7 中文主文档）
+3. `docs/P1_FINAL_NARRATIVE.md`（Day 7 英文镜像）
+4. `docs/PROJECT_PANORAMA_AND_MILESTONES.md`（英文全景图）
+5. `docs/EXECUTION_PLAN_P1.md`
+6. `docs/RESEARCH_CASE_EVAL.md`
+7. `src/agents/research_demo.py`
+8. `src/research/models.py`
+9. `src/research/normalizers.py`
+10. `src/research/synthesizer.py`
+11. `src/research/evaluator.py`
+12. `src/eval/research_case_runner.py`

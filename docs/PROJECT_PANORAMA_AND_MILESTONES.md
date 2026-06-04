@@ -296,8 +296,8 @@ P3 - Portfolio memory and RAG
 | P1 Day 3 | Live + Anthropic structured synthesis | Completed, commit `ff34aa4` |
 | P1 Day 4 | Case Runner expanded to 10 boundary cases | Completed, commit `c2eac74` |
 | P1 Day 5 | Freshness / missing data / conflict / unknown minimal rules | Completed, commit `59d398a` |
-| P1 Day 6 | Investment memo output shape | Completed, uncommitted, awaiting user review |
-| P1 Day 7 | P1 summary docs + interview explanation material | Next |
+| P1 Day 6 | Investment memo output shape | Completed, commit `e269555` |
+| P1 Day 7 | P1 summary docs + interview explanation material | In progress, bilingual docs `docs/P1_FINAL_NARRATIVE.md` / `docs/P1_FINAL_NARRATIVE_CN.md` |
 | P2 | investment-agent portfolio / knowledge memory submodule schema and RAG ingestion plan | Planned |
 | P3 | Retrieval-to-Source/Fact integration and memo-grade company research | Planned |
 | novel-agent P0 | Writer context pack + chapter state machine | Planned in separate repo |
@@ -370,7 +370,7 @@ Not done yet:
 - Model routing.
 - Rich conflict detection across independent providers.
 - Live failure regression cases from observed production-like runs.
-- Interview-ready P1 final narrative.
+- Interview-ready P1 final narrative. Day 7 in progress.
 
 
 ## Delivery Timeline and Resume Readiness
@@ -379,7 +379,7 @@ Use this schedule as the weekly check-in baseline. At the start of each work ses
 
 | Date | Milestone | Expected Output | Resume Readiness |
 |---|---|---|---|
-| 2026-06-04 Thu | P1 Day 6: Investment Memo output shape | memo renderer, evidence table, freshness notes, unknowns/conflicts, trace reference | Completed; awaiting review before commit |
+| 2026-06-04 Thu | P1 Day 6: Investment Memo output shape | memo renderer, evidence table, freshness notes, unknowns/conflicts, trace reference | Completed, commit `e269555` |
 | 2026-06-05 Fri | P1 Day 7: P1 summary and interview material | P1 summary doc, architecture explanation, 3-minute pitch, resume bullets | Close to v1 |
 | 2026-06-06 Sat | Resume package v1 cleanup | README/showcase/resume snippet updated, final demo commands verified | Ready for final review |
 | 2026-06-07 Sun | First application batch | Apply to first Agent / AI application roles with P1 story | Start applying v1 |
@@ -405,7 +405,7 @@ At each new task session, answer:
 
 ### Day 6: Investment Memo Output Shape
 
-Status: completed, awaiting user review / commit.
+Status: completed, commit `e269555`.
 
 Goal: convert the current research snapshot into a memo-shaped output without turning it into trading advice.
 
@@ -437,11 +437,13 @@ Expected artifacts:
 ## Reading Order For New Codex Sessions On VPS
 
 1. `docs/PROJECT_PANORAMA_AND_MILESTONES.md`
-2. `docs/EXECUTION_PLAN_P1.md`
-3. `docs/RESEARCH_CASE_EVAL.md`
-4. `src/agents/research_demo.py`
-5. `src/research/models.py`
-6. `src/research/normalizers.py`
-7. `src/research/synthesizer.py`
-8. `src/research/evaluator.py`
-9. `src/eval/research_case_runner.py`
+2. `docs/P1_FINAL_NARRATIVE_CN.md`
+3. `docs/P1_FINAL_NARRATIVE.md`
+4. `docs/EXECUTION_PLAN_P1.md`
+5. `docs/RESEARCH_CASE_EVAL.md`
+6. `src/agents/research_demo.py`
+7. `src/research/models.py`
+8. `src/research/normalizers.py`
+9. `src/research/synthesizer.py`
+10. `src/research/evaluator.py`
+11. `src/eval/research_case_runner.py`

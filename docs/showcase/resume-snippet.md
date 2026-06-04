@@ -3,7 +3,25 @@
 > 5/29 投递倒计时主用资产。**按受众 3 版本**：HR / 一面 / 终面。
 > 最后更新：2026-05-22
 
+
 ---
+
+## 2026-06 P1 Production Research Loop 版
+
+这一版用于投 Agent / LLM Application / AI Engineer 岗位时强调 production loop、eval、guardrail、traceability。早期 MCP/corporate-actions 版本仍可作为项目深挖故事。
+
+**investment-agent — Production Finance Research Agent**（个人项目，2026-04 至今）
+Python · Anthropic structured outputs · MCP/tool use · SQLite · yfinance · Google News RSS
+
+- 设计并实现 production-shaped investment research loop：live tool provider -> normalizer -> Source / Fact -> structured LLM synthesis -> Claim / Evidence binding -> Guardrail -> deterministic memo renderer -> JSONL trace -> regression case runner。
+- 将 quote、history、news、corporate actions、preferences 等工具输出规范化为可追踪 Source / Fact，约束 LLM 只能生成 evidence-bound Claim，并通过 Evidence 将关键结论绑定回 fact/source/timestamp。
+- 实现金融研究 guardrails：禁止直接 buy/sell/add/trim/hold/short/clear-position advice，要求关键 claim 有证据、source 有 timestamp、输出包含 risks / unknowns / human confirmation points。
+- 构建回归评估体系：10 条中文 direct-advice boundary cases + 3 条 frozen data-quality cases，覆盖 stale quote、missing news、conflicting signals；Day 6 验证 `pytest` 18 passed、fixture suite 13/13、live boundary suite 10/10。
+- 新增 deterministic investment memo renderer，输出 Boundary Statement、Executive Summary、Evidence Table、Risks、Unknowns / Conflicts、Freshness Notes、Human Confirmation Points、Trace Reference，并写入 `memo_rendered` trace event。
+
+一句话版：
+
+> Built a production-shaped finance research agent that converts live market tools into traceable Source/Fact/Claim/Evidence records, applies investment guardrails, renders deterministic research memos, and regression-tests boundary/data-quality behavior.
 
 ## Part 0 · 完整简历骨架（带占位符，自行替换）
 

@@ -3,7 +3,44 @@
 > 用途：面试现场口述。3 分钟脚本与 5 分钟录屏共享同一骨架（钩 / 架构 / 反例 / 升华），通道 2 抽查可复用。
 > **关键金句加粗，要能脱口而出**。
 
+
 ---
+
+## 2026-06 P1 Production Research Loop 版
+
+用途：介绍 P1 当前最新成果。早期 MCP / corporate-actions 反例故事仍然可以作为深入追问材料；这一版更适合讲 production agent、eval、guardrail 和 traceability。
+
+### 30 秒版
+
+> 我最近把 investment-agent 推进到 P1 Production Research Loop：它不是预测股票涨跌，而是把投资研究问题转成可追踪、可审计、可回归测试的 research memo。核心链路是工具输出先变成 Source 和 Fact，LLM 只能生成绑定证据的 Claim，最后经过 Guardrail、Trace 和 Case Runner 验证。Day 6 已经有 deterministic memo renderer、evidence table、13 条回归 case，并且 pytest 18 条通过。
+
+### 1 分钟版
+
+> investment-agent P1 的目标是做一个 production-shaped finance research agent，不是交易建议机器人。它从 quote、history、news、corporate actions 和 preferences 工具拿数据，然后通过 normalizer 转成 Source 和 Fact。LLM synthesizer 只负责把这些事实组织成 Claim，每个 Claim 必须通过 Evidence 绑定回 Fact 和 Source。
+>
+> 输出前会跑 guardrail，检查不能直接建议买卖加减仓，关键 claim 要有证据，source 要有 timestamp，输出里要包含风险、unknowns 和 human confirmation points。每次 run 会写 JSONL trace，case runner 再用 10 条 direct-advice boundary cases 和 3 条 data-quality cases 做回归。Day 6 加了 deterministic investment memo renderer，memo 不是新一轮自由生成，而是 audited research state 的投影。
+
+### 3 分钟版
+
+> 我现在重点讲 investment-agent 的 P1 Production Research Loop。这个项目的目标不是让模型预测股价，也不是给用户买卖建议，而是验证一个金融垂直 agent 怎么把 messy tool outputs 变成可追踪、带 guardrail、可回归测试的 research memo。
+>
+> 整个链路是 User Query -> Live Tool Provider -> Tool Result Normalizer -> Source / Fact -> LLMResearchSynthesizer -> Claim / Evidence Binder -> Guardrail Evaluator -> Investment Memo Renderer -> Trace JSONL -> Case Runner。
+>
+> 这里最重要的设计是我没有把工具返回的原始 JSON 直接塞进 prompt。工具输出必须先被 normalizer 转成 Source 和 Fact。Source 表示信息从哪里来，比如 quote tool、news RSS、corporate actions 或未来的 filing document；Fact 表示从 source 里抽出来的可用证据，比如 latest_price、news_tone、stale_quote、missing_news、conflicting_signals。
+>
+> LLM 的职责是 synthesis，但不是自由发挥。它生成 Claim，每个 Claim 必须通过 Evidence 绑定回已知 Fact 和 Source。这样 final answer 里的关键判断都能追到来源、时间戳和 fact metric。
+>
+> 然后 guardrail 是 post-generation gate，不靠 prompt 自觉。它检查输出不能变成 buy / sell / add / trim / hold / short / clear-position advice，关键 claim 要有 evidence，source 要有 timestamp，答案要包含风险、unknowns 和 human confirmation points。
+>
+> Trace 是我认为 production loop 里很关键的一环。每次 run 都会写 JSONL，包括 tool_result、fact_added、synthesis_result、claim_added、memo_rendered 和 guardrail_result。这样如果 live run 出错，我可以知道是哪一步出了问题，然后把它沉淀成 regression case。
+>
+> Eval 方面，现在有 10 条 direct-advice boundary cases，覆盖买、卖、加仓、减仓、持有、做空、清仓等中文表达；还有 3 条 frozen data-quality cases，覆盖 stale quote、missing news 和 conflicting signals。Day 6 验证里 ruff 全过，pytest 18 passed，fixture all suite 13/13，live boundary suite 10/10。
+>
+> Day 6 还加了 deterministic investment memo renderer，输出固定 memo sections：Boundary Statement、Executive Summary、Evidence Table、Risks、Unknowns、Freshness Notes、Human Confirmation Points 和 Trace Reference。这个 renderer 不是再让 LLM 写一遍，而是把已经审计过的 Source / Fact / Claim / Evidence 投影成 memo。
+>
+> 所以这个项目当前最能体现的是：evidence in，constrained synthesis，policy gate，trace out，regression back into the system。
+
+关联主文档：docs/P1_FINAL_NARRATIVE.md
 
 ## 30 秒电梯版 · 75 字
 

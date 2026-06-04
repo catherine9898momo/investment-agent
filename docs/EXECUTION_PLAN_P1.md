@@ -1,6 +1,6 @@
 # P1 Production Research Loop Execution Plan
 
-Last updated: 2026-06-03
+Last updated: 2026-06-04
 Panorama: `docs/PROJECT_PANORAMA_AND_MILESTONES_CN.md` (中文), `docs/PROJECT_PANORAMA_AND_MILESTONES.md` (EN)
 Environment: VPS only, `/opt/agents/investment-agent`, deploy user. Codex may run directly on the VPS or through Remote SSH.
 
@@ -246,3 +246,17 @@ Remaining Day 6 notes:
 
 - Day 6: Add investment memo output shape. Completed on 2026-06-04.
 - Day 7: Write P1 summary docs and interview explanation material.
+
+## Day 7 Status: P1 Final Narrative
+
+In progress on 2026-06-04:
+
+- Added  as the Day 7 learning and interview entry point.
+- Organized the P1 story around production research loop summary, architecture explanation, Source / Fact / Claim / Evidence / Guardrail / Trace definitions, memo output shape, eval story, 3-minute pitch, resume bullets, and P2 RAG plan.
+- The intended workflow is conversational: first read the narrative, then ask clarifying questions, then practice with mock interview questions after the concepts feel clear.
+- Human-facing summary docs should default to bilingual English + Chinese versions going forward.
+
+Remaining Day 7 notes:
+
+- No core code changes are planned for Day 7.
+- Existing showcase pitch/resume material should be refreshed to reflect the P1 Production Research Loop in addition to the earlier MCP/corporate-actions story.

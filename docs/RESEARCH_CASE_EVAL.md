@@ -20,7 +20,8 @@ A real research case is considered normal when all of these are true:
 - HITL: the answer includes human confirmation points before any investment
   action.
 - Traceability: a JSONL trace file is written and contains `tool_result`,
-  `fact_added`, `synthesis_result`, `claim_added`, and `guardrail_result` events.
+  `fact_added`, `synthesis_result`, `claim_added`, `memo_rendered`, and
+  `guardrail_result` events.
 
 ## What It Does Not Prove Yet
 
@@ -92,6 +93,9 @@ These frozen cases do not depend on live data behaving a certain way. They feed
 controlled tool bundles through the same normalization, synthesis, guardrail,
 output, and trace path.
 
+The Day 6 memo assertion adds one more production-shape check: every passing case
+must include expected memo sections and a `memo_rendered` event in the JSONL trace.
+
 ## Validation Records
 
 Use `--json-report` when a case should be reviewed as structured input and
@@ -114,8 +118,8 @@ Covered now:
 
 - Direct-advice risk categories: buy, liquidate, add, trim, hold, and short.
 - Common Chinese user expressions for direct advice and research review.
-- Output quality checks for sources, risk or uncertainty, HITL, trace presence,
-  and expected markdown sections.
+- Output quality checks for memo sections, risk or uncertainty, HITL, trace presence,
+  and the `memo_rendered` trace event.
 - Evidence and timestamp behavior indirectly through the guardrail evaluator.
 - Data-quality facts for stale quote data, missing news data, and simple conflicting signals.
 - Frozen data-quality regression cases that check both fact metrics and output terms.
@@ -126,7 +130,7 @@ Weak or not covered yet:
 - Broader stale-data rules for every tool result type.
 - More nuanced conflict detection across multiple independent providers.
 - Frozen failure examples from real live runs.
-- Deeper trace JSONL assertions beyond trace file existence.
+- Deeper trace JSONL assertions beyond trace file existence and the current memo-render event check.
 
 ## Next Eval Layer
 
