@@ -22,6 +22,13 @@ build/
 logs/
 reports/
 
+
+# 本地书籍资料与 OCR 产物（原则库/checklist 可入库）
+library/raw/*
+!library/raw/.gitkeep
+library/ocr/*
+!library/ocr/.gitkeep
+
 # IDE / 工具本地配置
 .claude/settings.local.json
 
