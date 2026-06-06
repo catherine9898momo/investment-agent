@@ -1,7 +1,7 @@
 # 项目全景图与里程碑
 
-最后更新：2026-06-04
-当前云端进度的事实来源：VPS 仓库提交历史与 `docs/EXECUTION_PLAN_P1.md`。
+最后更新：2026-06-06
+当前项目进度的主事实来源：本文档。其他文档用于辅助说明、阶段执行记录或具体方案展开。
 
 ## 这个项目为什么存在
 
@@ -42,7 +42,7 @@ User Query
  -> Case Runner / Regression Report
 ```
 
-当前状态：VPS 上已经完成 P1 Day 1-6。
+当前状态：VPS 上已经完成 P1 Day 1-7。P1 Production Research Loop 已形成可运行、可解释、可面试讲述的 v1；后续 P2/P3/P4/P5 都应继续服从同一条 `Source -> Fact -> Claim -> Evidence -> Guardrail -> Memo -> Trace / Eval` 主链路。
 
 ### L3 Agent 2：novel-agent / Long-Context Creative Agent
 
@@ -86,7 +86,7 @@ Tool / Data / Memory / Alert
 - **Monitor / Alert Trigger**：财报、价格异动、估值区间、新闻异常、宏观事件等触发 research run 或 mini memo，不直接触发买卖建议；
 - **Explainability Surface**：结论置信度、关键假设、反方观点、推翻条件、证据表、freshness/unknown/conflict 展示。
 
-当前状态：Research Core 已有 P1 可运行切片；Portfolio / Risk 有 SQLite/config 基础；Data Analysis、Knowledge Memory / RAG、Monitor / Alert 还没有生产实现；Explainability 已通过 memo renderer 和 evidence table 有可运行切片。
+当前状态：Research Core 已有 P1 可运行切片；Portfolio / Risk 有 SQLite/config 基础；Explainability 已通过 memo renderer 和 evidence table 有可运行切片。P2 已开始形成手动公司研究和原则库辅助资产，包括 MU thesis / monitoring pack、书籍 OCR 管线与 Marks 原则 checklist；但这些仍是研究资料和手动评估流程，尚未项目化接入 P1 的 evidence / guardrail / trace / eval 主链路。Data Analysis、Knowledge Memory / RAG、Monitor / Alert 仍没有生产实现。
 
 ## 系统全景图
 
@@ -137,8 +137,8 @@ flowchart TB
     subgraph KM["investment-agent internal data/memory modules"]
         H[Holdings / Watchlist<br/>partial]
         P[Preferences<br/>partial]
-        D[Company Documents<br/>future]
-        RN[Research Notes / Thesis<br/>future]
+        D[Company Documents<br/>manual library partial]
+        RN[Research Notes / Thesis<br/>manual MU partial]
         V[Vector / RAG Index<br/>future]
         H --> PR
         P --> PR
@@ -180,88 +180,106 @@ Trace = 可回放的 JSONL 审计记录
 
 ## investment-agent 生产模块地图
 
-这个格式参考 `novel-agent` 的生产级系统全景图：`✅` 表示模块已存在并可运行；`🟡` 表示已有可用切片但还不是生产版；`🔲` 表示还只是计划能力。
-
 ```text
-+----------------------------------------------------------------------------+
-|              investment-agent production research agent map                 |
-|                  ✅ exists | 🟡 partial | 🔲 missing       |
-+----------------------------------------------------------------------------+
+investment-agent 生产模块地图
+✅ 表示模块已存在并可运行；🟡 表示已有可用切片但还不是生产版；🔲 表示还只是计划能力。
 
-+------------------------------+  +------------------------------+
-| 1. Research Loop             |  | 2. Tools / Data              |
-+------------------------------+  +------------------------------+
-| ✅ research_demo         |  | ✅ memory_server          |
-| ✅ RunState / models     |  | ✅ finance_server         |
-| ✅ Source / Fact         |  | ✅ news_server            |
-| ✅ Claim / Evidence      |  | ✅ corporate_actions      |
-| 🟡 Intent Router     P1  |  | 🟡 live failure guard P1  |
-| 🟡 Planner           P1  |  | 🔲 tool budget        P1  |
-| 🟡 Runtime recovery  P1  |  | 🔲 provider registry  P2  |
-+------------------------------+  +------------------------------+
++--------------------------------------------------------------------------------------------------+
+|                         investment-agent 生产级研究 Agent 模块地图                               |
+|                         ✅ 已存在 | 🟡 部分完成 | 🔲 未完成                                     |
++--------------------------------------------------------------------------------------------------+
 
-+------------------------------+  +------------------------------+
-| 3. Evidence / Source          |  | 4. LLM Synthesizer            |
-+------------------------------+  +------------------------------+
-| ✅ Source model          |  | ✅ Mock synthesizer        |
-| ✅ Fact model            |  | ✅ Anthropic structured    |
-| ✅ Evidence binder       |  | ✅ Claim schema            |
-| ✅ timestamps            |  | 🟡 prompt policy       P1  |
-| 🟡 reliability model P1  |  | 🟡 invalid claim repair P1 |
-| 🟡 citation surface  P1  |  | 🔲 model routing       P2  |
-| 🔲 external URLs     P2  |  | 🔲 cost/latency policy P2  |
-+------------------------------+  +------------------------------+
++------------------------------------------------+  +------------------------------------------------+
+| 1. 研究主循环                                  |  | 2. 工具 / 数据                                  |
++------------------------------------------------+  +------------------------------------------------+
+| ✅ research_demo              // 研究链路入口   |  | ✅ memory_server          // 持仓/偏好记忆服务   |
+| ✅ RunState / 数据模型        // 单次运行状态   |  | ✅ finance_server         // 行情/历史价格服务   |
+| ✅ Source / Fact             // 来源与事实模型  |  | ✅ news_server            // 新闻召回服务        |
+| ✅ Claim / Evidence          // 结论与证据绑定  |  | ✅ corporate_actions      // 拆股/分红事实兜底   |
+| 🟡 Intent Router       P1    // 意图识别        |  | 🟡 live failure guard P1  // live 工具失败保护   |
+| 🟡 Planner             P1    // 研究步骤规划    |  | 🔲 tool budget       P1   // 工具调用预算控制    |
+| 🟡 Runtime recovery    P1    // 运行失败恢复    |  | 🔲 provider registry P2   // 数据源注册与选择    |
++------------------------------------------------+  +------------------------------------------------+
 
-+------------------------------+  +------------------------------+
-| 5. Guardrail / Policy         |  | 6. Eval / Regression          |
-+------------------------------+  +------------------------------+
-| ✅ no trading advice     |  | ✅ 10 boundary cases       |
-| ✅ evidence required     |  | ✅ 3 data-quality cases    |
-| ✅ timestamp required    |  | ✅ json-report records     |
-| ✅ risk/unknown required |  | 🟡 trace assertions    P1  |
-| 🟡 freshness rules   P1  |  | 🟡 live failure cases  P1  |
-| 🟡 conflict rules    P1  |  | 🔲 LLM invalid-id case P1  |
-| 🔲 repair/degrade    P1  |  | 🔲 citation eval       P2  |
-+------------------------------+  +------------------------------+
++------------------------------------------------+  +------------------------------------------------+
+| 3. 证据 / 来源层                               |  | 4. LLM 综合层                                   |
++------------------------------------------------+  +------------------------------------------------+
+| ✅ Source model           // 信息来源模型        |  | ✅ Mock synthesizer       // 本地模拟综合器      |
+| ✅ Fact model             // 结构化事实模型      |  | ✅ Anthropic structured   // 结构化 LLM 输出     |
+| ✅ Evidence binder        // 证据绑定器          |  | ✅ Claim schema           // 结论输出格式约束    |
+| ✅ timestamps             // 时间戳追踪          |  | 🟡 prompt policy     P1   // 提示词边界策略      |
+| 🟡 reliability model P1   // 来源可靠性建模      |  | 🟡 invalid claim repair P1// 无效结论修复/过滤   |
+| 🟡 citation surface  P1   // 引用展示层          |  | 🔲 model routing     P2   // 不同任务选择模型    |
+| 🔲 external URLs     P2   // 外部链接引用        |  | 🔲 cost/latency policy P2 // 成本/延迟策略       |
++------------------------------------------------+  +------------------------------------------------+
 
-+------------------------------+  +------------------------------+
-| 7. Output / HITL              |  | 8. Portfolio / Risk           |
-+------------------------------+  +------------------------------+
-| ✅ research snapshot     |  | ✅ SQLite memory.db        |
-| ✅ human questions       |  | ✅ config portfolio/watch  |
-| ✅ memo sections     P1  |  | 🟡 preferences memory  P1  |
-| 🟡 investment memo   P1  |  | 🔲 exposure facts       P3 |
-| ✅ evidence table    P1  |  | 🔲 concentration risk   P3 |
-| 🔲 approval gates    P1  |  | 🔲 scenario stress test P3 |
-| 🔲 decision log      P2  |  | 🔲 risk memo sections   P3 |
-+------------------------------+  +------------------------------+
++------------------------------------------------+  +------------------------------------------------+
+| 5. 安全边界 / 策略                             |  | 6. 评估 / 回归                                  |
++------------------------------------------------+  +------------------------------------------------+
+| ✅ no trading advice       // 禁止交易指令       |  | ✅ 10 boundary cases     // 10 条边界测试        |
+| ✅ evidence required       // 关键结论必须有证据 |  | ✅ 3 data-quality cases  // 3 条数据质量测试     |
+| ✅ timestamp required      // 来源必须有时间戳   |  | ✅ json-report records   // JSON 评估报告        |
+| ✅ risk/unknown required   // 必须呈现风险/未知  |  | 🟡 trace assertions P1   // trace 断言检查       |
+| 🟡 freshness rules   P1   // 数据新鲜度规则      |  | 🟡 live failure cases P1 // live 失败回归案例    |
+| 🟡 conflict rules    P1   // 冲突信号识别        |  | 🔲 LLM invalid-id case P1// LLM 错引 fact 测试   |
+| 🔲 repair/degrade    P1   // 修复/降级策略       |  | 🔲 citation eval    P2   // 引用完整性评估       |
++------------------------------------------------+  +------------------------------------------------+
 
-+------------------------------+  +------------------------------+
-| 9. Data Analysis Layer        |  | 10. Knowledge / RAG           |
-+------------------------------+  +------------------------------+
-| 🔲 valuation metrics     P2  |  | 🔲 filings metadata    P4  |
-| 🔲 volatility/drawdown   P2  |  | 🔲 document ingestion  P4  |
-| 🔲 correlation           P2  |  | 🔲 embeddings/pgvector P4  |
-| 🔲 factor ranking        P2  |  | 🔲 retrieval->Fact     P4  |
-| 🔲 analysis result->Fact P2  |  | 🔲 citation eval       P4  |
-+------------------------------+  +------------------------------+
++------------------------------------------------+  +------------------------------------------------+
+| 7. 输出 / 人工确认                             |  | 8. 组合 / 风险                                  |
++------------------------------------------------+  +------------------------------------------------+
+| ✅ research snapshot      // 研究快照输出        |  | ✅ SQLite memory.db      // 本地记忆数据库       |
+| ✅ human questions        // 人工确认问题        |  | ✅ config portfolio/watch// 持仓/关注列表配置    |
+| ✅ memo sections     P1   // memo 固定章节       |  | 🟡 preferences memory P1 // 用户偏好记忆         |
+| 🟡 investment memo   P1   // 投资研究 memo 雏形  |  | 🔲 exposure facts   P3   // 组合暴露事实         |
+| ✅ evidence table    P1   // 证据表              |  | 🔲 concentration risk P3 // 集中度风险           |
+| 🔲 approval gates    P1   // 人工审批闸门        |  | 🔲 scenario stress test P3// 情景压力测试        |
+| 🔲 decision log      P2   // 人工决策记录        |  | 🔲 risk memo sections P3 // 风险 memo 章节       |
++------------------------------------------------+  +------------------------------------------------+
 
-+------------------------------+  +------------------------------+
-| 11. Monitor / Alert           |  | 12. Explainability            |
-+------------------------------+  +------------------------------+
-| 🔲 alert rule schema     P5  |  | ✅ evidence table       P1  |
-| 🔲 scheduled checks      P5  |  | ✅ freshness notes      P1  |
-| 🔲 event->research run   P5  |  | ✅ unknown/conflict     P1  |
-| 🔲 mini memo             P5  |  | 🔲 confidence surface   P2  |
-| 🔲 alert regression      P5  |  | 🔲 thesis invalidators  P2  |
-+------------------------------+  +------------------------------+
++------------------------------------------------+  +------------------------------------------------+
+| 9. 数据分析层                                  |  | 10. 知识 / RAG                                  |
++------------------------------------------------+  +------------------------------------------------+
+| 🔲 valuation metrics P2   // 估值指标计算       |  | 🟡 manual library P2    // 手动原则/资料库       |
+| 🔲 volatility/drawdown P2 // 波动/回撤计算      |  | 🟡 manual thesis  P2    // 手动公司 thesis       |
+| 🔲 correlation      P2    // 相关性计算          |  | 🔲 filings metadata P4  // 财报/公告元数据       |
+| 🔲 factor ranking   P2    // 因子排序            |  | 🔲 embeddings/pgvector P4// 向量索引             |
+| 🔲 analysis result->Fact P2// 分析结果转事实    |  | 🔲 retrieval->Fact P4  // 检索结果转事实        |
++------------------------------------------------+  +------------------------------------------------+
 
-P0 main path: Research Boundary -> Source/Fact -> Synthesizer -> Evidence Binder -> Guardrail -> Trace
-P1 quality loop: Case Runner -> Freshness/Missing/Conflict -> Degradation -> Trace-to-Eval
-P2 research depth: Citation-rich Memo -> Deterministic Data Analysis -> Analysis result as Fact
-P3 portfolio risk: Holdings/Watchlist/Preferences -> Exposure/Risk Facts -> Portfolio Risk Memo
-P4 knowledge depth: Documents/RAG -> Retrieval-to-Source/Fact -> Citation eval
-P5 monitor loop: Alert Event -> Research Run -> Mini Memo -> Human Confirmation
++------------------------------------------------+  +------------------------------------------------+
+| 11. 监控 / 触发                                |  | 12. 可解释性                                    |
++------------------------------------------------+  +------------------------------------------------+
+| 🟡 manual MU monitor P2  // MU 手动监控流程      |  | ✅ evidence table P1    // 证据表展示            |
+| 🔲 alert rule schema P5  // 告警规则 schema      |  | ✅ freshness notes P1   // 数据新鲜度说明        |
+| 🔲 scheduled checks P5   // 定时检查             |  | ✅ unknown/conflict P1  // 未知/冲突说明         |
+| 🔲 event->research run P5// 事件触发研究运行     |  | 🔲 confidence surface P2// 置信度展示            |
+| 🔲 mini memo/regression P5// 小 memo 与回归测试  |  | 🔲 thesis invalidators P2// thesis 证伪条件      |
++------------------------------------------------+  +------------------------------------------------+
+
+P0 主路径：
+Research Boundary -> Source/Fact -> Synthesizer -> Evidence Binder -> Guardrail -> Trace
+// 建立可追踪研究核心：事实进入，证据绑定，安全输出，trace 留痕。
+
+P1 质量闭环：
+Case Runner -> Freshness/Missing/Conflict -> Degradation -> Trace-to-Eval
+// 把失败模式变成回归测试：过期数据、缺失数据、冲突信号都要被暴露。
+
+P2 研究深度：
+Company Research Pack -> Thesis Memory -> Citation-rich Memo -> Data Analysis -> Analysis result as Fact
+// 把公司研究、thesis、估值、行业周期、引用丰富度接入生产链路。
+
+P3 组合风险：
+Holdings/Watchlist/Preferences -> Exposure/Risk Facts -> Portfolio Risk Memo
+// 从持仓和偏好生成组合暴露、集中度、压力测试等风险事实。
+
+P4 知识深度：
+Documents/RAG -> Retrieval-to-Source/Fact -> Citation Eval
+// 把年报、电话会、研究笔记等文档检索结果转成可引用事实。
+
+P5 监控闭环：
+Alert Event -> Research Run -> Mini Memo -> Human Confirmation
+// 由财报、价格异动、估值区间、证伪条件等事件触发研究，而不是触发交易。
 ```
 
 ### 当前完成度热力图
@@ -284,6 +302,8 @@ P5 monitor loop: Alert Event -> Research Run -> Mini Memo -> Human Confirmation
   HITL 目前只是问题清单，还不是 approval gates
   preferences、portfolio/watchlist config 和 SQLite memory foundation
   Portfolio / Risk Layer 只有结构化状态基础，还没有风险事实生成器
+  MU company_research thesis / monitoring pack 是手动研究流程，还没有接入 P1 memo/eval
+  library OCR / principles / checklist 是研究原则库辅助资产，还不是 RAG/document ingestion
 
 🔲 尚未完成：
   显式 Tool Budget / Provider Registry / Degradation policy
@@ -292,6 +312,7 @@ P5 monitor loop: Alert Event -> Research Run -> Mini Memo -> Human Confirmation
   Data Analysis Layer：估值、波动、回撤、相关性、因子、压力测试
   Data Analysis result -> Source/Fact 的归一化桥接
   Portfolio / Risk Layer：暴露、集中度、组合回撤、情景压力测试
+  P2A-MU Thesis Pack 的项目化接入：manual thesis -> Source/Fact -> Claim/Evidence -> memo/eval case
   年报 / filings / transcripts ingestion
   embeddings / pgvector / retrieval-to-Source-Fact bridge
   Monitor / Alert：规则、调度、event-to-research-run、mini memo
@@ -320,14 +341,15 @@ P1 - Regression 与数据质量控制
   6. memo trace event assertion
   状态：🟡 部分完成 / ✅ Day 4-6 已完成主要切片；仍缺 live failure cases 和更丰富的 trace assertions
 
-P2 - Data depth and citation richness
-  1. richer external URL citation surface
-  2. provider reliability matrix
-  3. deterministic data analysis tools
-  4. valuation / volatility / drawdown / correlation / factor facts
-  5. analysis result -> Source/Fact bridge
-  6. confidence surface and thesis invalidators
-  状态：🔲 计划中；Day 6 已完成 memo shape，但数据深度和 citation richness 仍缺
+P2 - Data depth, research pack, and citation richness
+  1. company research pack / thesis memory
+  2. richer external URL citation surface
+  3. provider reliability matrix
+  4. deterministic data analysis tools
+  5. valuation / volatility / drawdown / correlation / factor facts
+  6. analysis result -> Source/Fact bridge
+  7. confidence surface and thesis invalidators
+  状态：🟡 已开始手动研究资产建设；P2 生产化仍未完成。当前已有 MU thesis / monitoring.yaml / fixture report、P2 workbench plan、book OCR pipeline、Marks principles/checklist；下一步若做工程化，应把 MU manual thesis pack 接入 Source/Fact、memo sections、case runner 和 guardrail/eval。
 
 P3 - Portfolio risk intelligence
   1. holdings/watchlist/preference schema hardening
@@ -345,7 +367,7 @@ P4 - Knowledge Memory / RAG
   4. retrieval-to-Source/Fact bridge
   5. citation eval
   6. memo-grade company research with citations
-  状态：🔲 计划中
+  状态：🔲 生产化计划中。当前 `library/` 下已有手动原则库与 OCR 产物，但它们还不是 document ingestion / embedding / retrieval-to-Fact 系统。
 
 P5 - Monitor / Alert loop
   1. alert rule schema
@@ -381,8 +403,11 @@ P6 - Role-based review layer（optional）
 | P1 Day 4 | Case Runner expanded to 10 boundary cases | 已完成，commit `c2eac74` |
 | P1 Day 5 | Freshness / missing data / conflict / unknown minimal rules | 已完成，commit `59d398a` |
 | P1 Day 6 | Investment memo output shape | 已完成，commit `e269555` |
-| P1 Day 7 | P1 summary docs + interview explanation material | 进行中，双语主文档 `docs/P1_FINAL_NARRATIVE_CN.md` / `docs/P1_FINAL_NARRATIVE.md` |
-| P2 | Data depth and citation richness：外部引用、provider reliability、确定性数据分析工具、analysis result -> Fact | 计划中 |
+| P1 Day 7 | P1 summary docs + interview explanation material | 已完成，commit `5dedac7`，双语主文档 `docs/P1_FINAL_NARRATIVE_CN.md` / `docs/P1_FINAL_NARRATIVE.md` |
+| P2 planning | Investment research workbench plan：研究模板、thesis memory、估值、行业周期、scorecard、monitor | 已完成方案文档，commit `aefacea` |
+| P2 manual research | MU thesis / monitoring 手动评估流程 | 已有手动研究包与 fixture report，commit `6762444`；尚未接入 P1 evidence/eval 主链路 |
+| Research library | Book OCR pipeline + Marks principles / checklist | 已有辅助资产，commit `ba44349`；尚未作为 RAG/document ingestion 生产模块 |
+| P2 engineering | Data depth and citation richness：外部引用、provider reliability、确定性数据分析工具、analysis result -> Fact | 计划中 / 下一工程阶段 |
 | P3 | Portfolio risk intelligence：组合暴露、集中度、回撤/波动、情景压力测试、risk memo sections | 计划中 |
 | P4 | Knowledge Memory / RAG：filings/transcripts/notes ingestion、retrieval-to-Source/Fact、citation eval | 计划中 |
 | P5 | Monitor / Alert loop：规则、调度、event -> research run、mini memo、alert regression | 计划中 |
@@ -392,7 +417,7 @@ P6 - Role-based review layer（optional）
 
 ## 旧 L3 全景图中的生产化缺口
 
-旧的 L3 production gap map 仍然有效。P1 Day 1-5 只是完成了可追踪投资研究核心，并没有完成所有生产模块。
+旧的 L3 production gap map 仍然有效。P1 Day 1-7 只是完成了可追踪投资研究核心和面向人的 v1 叙事，并没有完成所有生产模块。P2 manual research 产物可以作为输入材料，但不能等同于生产化 P2 模块完成。
 
 | 生产模块 | investment-agent 当前状态 | 剩余缺口 | novel-agent 对应模块 |
 |---|---|---|---|
@@ -402,18 +427,18 @@ P6 - Role-based review layer（optional）
 | Tool Registry / Tool Schema | 部分实现 | 更严格的 tool input/output schema 与 validation | chapter operation registry |
 | Tool Executor | 部分实现 | retry、timeout、cache、degradation policy | generation step 的 retry/recover |
 | Context Builder / Context Pack | 通过 facts 部分实现 | memo context builder 与 retrieval pack | writer context pack |
-| Memory / State | SQLite/config 基础 | holdings/watchlist/filings/notes/RAG state | chapter/story/canon state |
+| Memory / State | SQLite/config 基础；MU thesis/manual notes 已有文件化雏形 | holdings/watchlist/filings/notes/RAG state；manual thesis 需要进入 Source/Fact/eval | chapter/story/canon state |
 | Data Analysis Layer | 未实现 | valuation / volatility / drawdown / correlation / factor facts，计算结果必须转成 Source/Fact | 不直接对应 |
 | Portfolio / Risk Layer | SQLite/config 基础 | exposure facts、concentration risk、scenario stress test、risk memo sections | 不直接对应 |
-| Monitor / Alert | 未实现 | alert rules、scheduled checks、event-to-research-run、mini memo、alert regression | 不直接对应 |
+| Monitor / Alert | MU monitoring.yaml + fixture report 属于手动流程 | alert rules、scheduled checks、event-to-research-run、mini memo、alert regression | 不直接对应 |
 | Source Verification / Citation | 已有 Source/Fact/Evidence 核心 | 更丰富的 provider reliability 与 citation surface | story canon verification |
 | Policy / Guardrail | 已有最小 evaluator | 更完整的 policy matrix 与 repair/degrade flow | style/canon/pacing policy |
 | HITL | 输出中提出确认问题 | 显式 approval gates | accept/revise/regenerate decisions |
 | Trace Logger | 已有 JSONL trace | 更丰富的 trace assertions 与 failure capture | chapter run trace |
-| Eval / Regression | 当前 13 cases | 更多 live failure cases 与 citation checks | continuity/golden chapter eval |
+| Eval / Regression | 当前 13 cases；MU thesis pack 尚未进入 case runner | 更多 live failure cases、citation checks、company thesis cases | continuity/golden chapter eval |
 | Model Routing | 未实现 | 按 task/risk/cost 选择模型 | writer/reviewer model split |
 
-这份 backlog 要持续保留。不要把它压缩成 Day 6/Day 7 计划；Day 6/Day 7 只是下一步 P1，不是完整 L3 生产化终点。
+这份 backlog 要持续保留。不要把它压缩成 P1 Day 6/Day 7 或 P2 手动研究流程；这些只是阶段性学习与展示产物，不是完整 L3 生产化终点。
 
 ## 当前 P1 验证快照
 
@@ -448,6 +473,10 @@ Day 6 在 VPS 上记录的最新验证命令：
 - 3 条 frozen data-quality suite。
 - 最小 stale quote、missing news、conflict facts。
 - Investment Memo renderer、Evidence Table、Freshness Notes、Unknowns / Conflicts。
+- P1 final narrative 双语文档，用于解释 production research loop、核心概念、eval story、3-minute pitch 和 resume bullets。
+- P2 investment research workbench 方案文档。
+- MU thesis / monitoring.yaml / fixture report 的手动公司研究流程。
+- Book OCR pipeline、Marks 原则库、公司分析 checklist 等研究辅助资产。
 
 尚未完成：
 
@@ -459,12 +488,13 @@ Day 6 在 VPS 上记录的最新验证命令：
 - Embedding 与 pgvector retrieval。
 - Retrieval-to-Source/Fact bridge。
 - Monitor / Alert loop：alert rules、scheduled checks、event-to-research-run、mini memo。
+- P2A-MU Thesis Pack 的项目化接入：把手动 thesis、support/oppose evidence、invalidators 转成 `Source` / `Fact` / `Claim` / `Evidence`，并进入 memo renderer、guardrail、trace、case runner。
 - 显式 intent router、planner、tool budget、degradation policy。
 - HITL approval gates，目前只有 rendered confirmation questions。
 - Model routing。
 - 跨独立 provider 的 rich conflict detection。
 - 从真实 production-like run 沉淀的 live failure regression cases。
-- 面试可讲的 P1 final narrative。
+- 研究原则库到公司研究事实层的桥接：principles/checklist 目前用于人工研究，不应直接绕过 evidence model。
 
 ## 交付时间线与简历 readiness
 
@@ -473,10 +503,10 @@ Day 6 在 VPS 上记录的最新验证命令：
 | 日期 | 里程碑 | 预期产物 | 简历投递 readiness |
 |---|---|---|---|
 | 2026-06-04 Thu | P1 Day 6：Investment Memo output shape | memo renderer、evidence table、freshness notes、unknowns/conflicts、trace reference | 已完成，commit `e269555` |
-| 2026-06-05 Fri | P1 Day 7：P1 summary 与 interview material | P1 summary doc、architecture explanation、3-minute pitch、resume bullets | 接近 v1 |
-| 2026-06-06 Sat | Resume package v1 cleanup | README/showcase/resume snippet 更新，final demo commands 验证 | 可进入最终 review |
-| 2026-06-07 Sun | First application batch | 用 P1 story 投递第一批 Agent / AI application roles | 开始 v1 投递 |
-| 2026-06-08 至 2026-06-12 | P2 Data depth and citation richness | external URL citation、provider reliability、确定性数据分析工具、analysis result -> Fact | 边投递边增强 |
+| 2026-06-05 Fri | P1 Day 7：P1 summary 与 interview material | P1 summary doc、architecture explanation、3-minute pitch、resume bullets | 已完成，commit `5dedac7` |
+| 2026-06-06 Sat | Progress source-of-truth refresh + resume package v1 cleanup | 全景图更新为主事实源；README/showcase/resume snippet 更新；final demo commands 验证 | 当前任务；v1 可进入最终 review |
+| 2026-06-07 Sun | First application batch 或 P2A 工程化启动 | 用 P1 story 投递第一批 Agent / AI application roles；或将 MU manual thesis pack 接入 P1 loop | 取决于投递优先级 |
+| 2026-06-08 至 2026-06-12 | P2 Data depth and citation richness / P2A-MU engineering | external URL citation、provider reliability、确定性数据分析工具、analysis result -> Fact；或 MU thesis pack -> Source/Fact/eval | 边投递边增强 |
 | 2026-06-13 至 2026-06-16 | P3 Portfolio risk intelligence | exposure facts、concentration risk、drawdown/volatility、scenario stress test、risk memo sections | 技术深度更强 |
 | 2026-06-17 至 2026-06-20 | P4 Knowledge Memory / RAG | filings/transcripts/notes ingestion、retrieval-to-Source/Fact、citation eval | 更强生产级版本 |
 | 约 2026-06-21 | Production-grade v2 checkpoint | P1 + P2/P3 integrated narrative and demo；P4 可作为后续增强 | 更强面试版本 |
@@ -517,6 +547,8 @@ Day 6 在 VPS 上记录的最新验证命令：
 
 ### Day 7：P1 Final Narrative
 
+状态：已完成，commit `5dedac7`。
+
 目标：产出面向人的说明材料，讲清楚 production research loop，以及每条边界为什么存在。
 
 预期产物：
@@ -526,6 +558,34 @@ Day 6 在 VPS 上记录的最新验证命令：
 - Source / Fact / Claim / Evidence / Guardrail 的面试解释；
 - resume/showcase deltas；
 - next-phase plan：Data Analysis、Portfolio Risk、Knowledge/RAG、Monitor 的优先级与边界。
+
+### P2 手动研究资产：MU Thesis / Monitoring + Marks 原则库
+
+状态：已有手动流程和辅助资产，但尚未生产化接入。
+
+当前产物：
+
+- `company_research/MU/thesis.md`：MU 投资命题、企业质量、行业周期、估值框架、证伪条件、巴芒评分、下次财报问题。
+- `company_research/MU/monitoring.yaml`：MU repeatable monitoring table 与 fixture snapshot。
+- `company_research/MU/reports/`：fixture monitoring report。
+- `docs/P2_INVESTMENT_RESEARCH_WORKBENCH_CN.md`：P2 投资研究工作台方案。
+- `docs/BOOK_PIPELINE_CN.md`、`tools/book_pipeline/ocr_book.py`、`library/principles/`、`library/checklists/`：书籍 OCR、原则库和公司分析 checklist。
+
+边界判断：
+
+- 这些资产是 P2 的研究输入和人工流程，不代表 P2A 项目化完成。
+- 项目化完成的标准仍然是：manual thesis / invalidators / monitoring facts 进入 `Source` / `Fact`，由 synthesizer 生成有 evidence 的 `Claim`，memo renderer 输出 `Investment Thesis` / `Thesis Invalidators` 等章节，guardrail 和 case runner 能验证它。
+
+### 下一工程切片候选：P2A-MU Thesis Pack 接入主链路
+
+如果优先做工程化而不是 resume/application cleanup，下一步只做一个小切片：
+
+- 新增最小 thesis / invalidator model。
+- 将 MU fixture research pack 转成 `Source` / `Fact`。
+- memo 增加 `Investment Thesis` 与 `Thesis Invalidators` section。
+- case runner 增加 `mu_hbm_thesis_pack`。
+- 验证 memo 不给买卖建议，且 MU thesis、支持证据、反方证据、证伪条件、人工确认问题都出现，关键 claims 都绑定 evidence。
+
 
 ## 新 Codex 会话阅读顺序
 
