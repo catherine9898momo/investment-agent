@@ -11,9 +11,6 @@ from dataclasses import dataclass
 from collections.abc import Callable
 from typing import Any, Literal, Protocol
 
-from src.mcp_servers.corporate_actions_server import get_corporate_actions
-from src.mcp_servers.finance_server import _fetch_history, _fetch_quote
-from src.mcp_servers.news_server import _fetch_news
 from src.memory import store
 
 
@@ -65,16 +62,16 @@ class FixtureToolResultProvider:
                 "days": news_days,
                 "items": [
                     {
-                        "title": "Demo fixture: Tesla delivery and margin discussion remains mixed",
+                        "title": f"演示数据：{company_query} 需求与利润率讨论仍偏混合",
                         "source": "Local Demo News",
                         "published": "2026-06-01T12:00:00+00:00",
-                        "link": "local-fixture://news/tesla-mixed-margin",
+                        "link": f"local-fixture://news/{symbol.lower()}-mixed-margin",
                     },
                     {
-                        "title": "Demo fixture: EV demand and competition remain key watch points",
+                        "title": f"演示数据：{company_query} 行业需求与竞争仍是关键观察点",
                         "source": "Local Demo News",
                         "published": "2026-05-31T12:00:00+00:00",
-                        "link": "local-fixture://news/ev-demand-competition",
+                        "link": f"local-fixture://news/{symbol.lower()}-demand-competition",
                     },
                 ],
             },
@@ -96,6 +93,23 @@ class LiveToolResultProvider:
     data_source: Literal["live"] = "live"
 
     def fetch(self, symbol: str, company_query: str, history_days: int, news_days: int) -> ToolResultBundle:
+        """/**
+         * 为已解析标的拉取 live 工具结果。
+         *
+         * @param symbol - 由 intake/entity 层解析出的 ticker。
+         * @param company_query - 由 intake/entity 层解析出的公司/新闻 query。
+         * @param history_days - planner/caller 请求的价格历史回看窗口。
+         * @param news_days - planner/caller 请求的新闻回看窗口。
+         * @returns 与 fixture provider 输出形态一致的 ToolResultBundle。
+         *
+         * @remarks 实时 MCP 后端依赖会保留在这个方法内部导入；这样 fixture 研究 run 即使不安装网络/实时数据依赖，也能验证查询入口、研究计划、报告渲染和 guardrail。
+         */
+        """
+
+        from src.mcp_servers.corporate_actions_server import get_corporate_actions
+        from src.mcp_servers.finance_server import _fetch_history, _fetch_quote
+        from src.mcp_servers.news_server import _fetch_news
+
         preferences = _safe_tool_result("memory.get_preferences", lambda: store.get_all_preferences() or default_preferences())
         return ToolResultBundle(
             data_source=self.data_source,

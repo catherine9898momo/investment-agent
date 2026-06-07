@@ -14,6 +14,9 @@ dependencies = [
     "feedparser",
 ]
 
+[project.scripts]
+investment-research = "src.agents.research_demo:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest",

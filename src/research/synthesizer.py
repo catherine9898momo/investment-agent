@@ -11,7 +11,18 @@ import json
 import os
 from dataclasses import dataclass, field
 from typing import Any, Protocol
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    def load_dotenv() -> None:
+        """/**
+         * 离线 fixture/mock 运行使用的 空操作兜底函数。
+         *
+         * @remarks 查询入口和 mock 综合 路径应该能在最小环境里运行；只有 Anthropic/live 路径需要 python-dotenv 提供环境文件支持。
+         */
+        """
+
+        return None
 
 from src.research.models import Claim, Evidence, ResearchRunState, new_id
 
@@ -78,6 +89,8 @@ class MockLLMResearchSynthesizer:
 
     def synthesize(self, run: ResearchRunState) -> SynthesisResult:
         fact_by_metric = {fact.metric: fact for fact in run.facts if fact.metric}
+        entity_symbol = run.resolved_entity.symbol if run.resolved_entity else (run.facts[0].symbol or "the company")
+        entity_name = run.resolved_entity.company_query if run.resolved_entity else entity_symbol
         price_fact = fact_by_metric.get("latest_price") or run.facts[0]
         news_fact = fact_by_metric.get("news_tone")
         pref_fact = fact_by_metric.get("investment_preferences") or run.facts[0]
@@ -86,23 +99,22 @@ class MockLLMResearchSynthesizer:
         claims = [
             CandidateClaim(
                 text=(
-                    "Current sourced evidence is enough to keep TSLA in a research workflow, "
-                    "but it is not enough to produce a trading instruction."
+                    f"当前可追踪证据足以把 {entity_symbol} 留在研究流程中，"
+                    "但不足以生成任何交易指令。"
                 ),
                 claim_type="supporting_factor",
                 fact_ids=[price_fact.id],
             ),
             CandidateClaim(
                 text=(
-                    "The question matches the user's value-investing preference only at "
-                    "the research stage; business quality, margins, valuation, and management "
-                    "evidence still need confirmation."
+                    f"关于 {entity_name} 的问题目前只匹配到用户的价值投资研究偏好；"
+                    "业务质量、利润率、估值和管理层证据仍需要进一步确认。"
                 ),
                 claim_type="fit_assessment",
                 fact_ids=[pref_fact.id],
             ),
             CandidateClaim(
-                text="Short-term price movement alone is insufficient evidence for an investment decision.",
+                text="短期价格波动本身不足以支持投资决策。",
                 claim_type="unknown",
                 fact_ids=[history_fact.id],
             ),
@@ -112,8 +124,8 @@ class MockLLMResearchSynthesizer:
                 1,
                 CandidateClaim(
                     text=(
-                        "The recent news evidence is mixed, so the answer should preserve "
-                        "uncertainty instead of forcing a bullish or bearish conclusion."
+                        "近期新闻证据偏混合，回答应保留不确定性，"
+                        "而不是强行给出看多或看空结论。"
                     ),
                     claim_type="risk_factor",
                     fact_ids=[news_fact.id],
@@ -131,9 +143,9 @@ class MockLLMResearchSynthesizer:
             )
 
         human_confirmation_points = [
-            "你关注 TSLA 的核心 thesis 是自动驾驶、能源、制造效率，还是纯 EV 销量？",
+            f"你关注 {entity_symbol} 的核心投资论点是什么？例如产品周期、行业景气、财务质量、管理层，还是估值修复？",
             "是否有目标估值纪律和最大回撤承受边界？",
-            "是否允许把 local fixture 升级为 live MCP tool run 后再生成正式 memo？",
+            "是否允许切换到实时数据源，再生成正式研究报告？",
         ]
         if data_quality_facts:
             human_confirmation_points.append("请人工确认 stale、missing 或 conflicting 数据质量限制后，再决定是否生成正式 memo。")

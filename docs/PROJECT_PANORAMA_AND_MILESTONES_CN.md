@@ -312,7 +312,7 @@ Alert Event -> Research Run -> Mini Memo -> Human Confirmation
   Data Analysis Layer：估值、波动、回撤、相关性、因子、压力测试
   Data Analysis result -> Source/Fact 的归一化桥接
   Portfolio / Risk Layer：暴露、集中度、组合回撤、情景压力测试
-  P2A-MU Thesis Pack 的项目化接入：manual thesis -> Source/Fact -> Claim/Evidence -> memo/eval case
+  P2A 用户输入驱动的公司研究报告链路：User Query -> Intent/Entity -> Company Research Pack -> Source/Fact -> Claim/Evidence -> Memo/Eval
   年报 / filings / transcripts ingestion
   embeddings / pgvector / retrieval-to-Source-Fact bridge
   Monitor / Alert：规则、调度、event-to-research-run、mini memo
@@ -349,7 +349,7 @@ P2 - Data depth, research pack, and citation richness
   5. valuation / volatility / drawdown / correlation / factor facts
   6. analysis result -> Source/Fact bridge
   7. confidence surface and thesis invalidators
-  状态：🟡 已开始手动研究资产建设；P2 生产化仍未完成。当前已有 MU thesis / monitoring.yaml / fixture report、P2 workbench plan、book OCR pipeline、Marks principles/checklist；下一步若做工程化，应把 MU manual thesis pack 接入 Source/Fact、memo sections、case runner 和 guardrail/eval。
+  状态：🟡 已开始手动研究资产建设；P2 生产化仍未完成。当前已有 MU thesis / monitoring.yaml / fixture report、P2 workbench plan、book OCR pipeline、Marks principles/checklist。下一步工程化目标不是做 MU 专用功能，而是打通用户输入驱动的公司研究报告链路；MU 只是首个验证用例，用来证明任意公司 research pack 都能进入 Source/Fact、memo sections、case runner 和 guardrail/eval。
 
 P3 - Portfolio risk intelligence
   1. holdings/watchlist/preference schema hardening
@@ -405,7 +405,7 @@ P6 - Role-based review layer（optional）
 | P1 Day 6 | Investment memo output shape | 已完成，commit `e269555` |
 | P1 Day 7 | P1 summary docs + interview explanation material | 已完成，commit `5dedac7`，双语主文档 `docs/P1_FINAL_NARRATIVE_CN.md` / `docs/P1_FINAL_NARRATIVE.md` |
 | P2 planning | Investment research workbench plan：研究模板、thesis memory、估值、行业周期、scorecard、monitor | 已完成方案文档，commit `aefacea` |
-| P2 manual research | MU thesis / monitoring 手动评估流程 | 已有手动研究包与 fixture report，commit `6762444`；尚未接入 P1 evidence/eval 主链路 |
+| P2 manual research | MU thesis / monitoring 手动评估流程 | 已有手动研究包与 fixture report，commit `6762444`；MU 是首个研究用例，尚未接入用户输入驱动的 evidence/eval 主链路 |
 | Research library | Book OCR pipeline + Marks principles / checklist | 已有辅助资产，commit `ba44349`；尚未作为 RAG/document ingestion 生产模块 |
 | P2 engineering | Data depth and citation richness：外部引用、provider reliability、确定性数据分析工具、analysis result -> Fact | 计划中 / 下一工程阶段 |
 | P3 | Portfolio risk intelligence：组合暴露、集中度、回撤/波动、情景压力测试、risk memo sections | 计划中 |
@@ -435,7 +435,7 @@ P6 - Role-based review layer（optional）
 | Policy / Guardrail | 已有最小 evaluator | 更完整的 policy matrix 与 repair/degrade flow | style/canon/pacing policy |
 | HITL | 输出中提出确认问题 | 显式 approval gates | accept/revise/regenerate decisions |
 | Trace Logger | 已有 JSONL trace | 更丰富的 trace assertions 与 failure capture | chapter run trace |
-| Eval / Regression | 当前 13 cases；MU thesis pack 尚未进入 case runner | 更多 live failure cases、citation checks、company thesis cases | continuity/golden chapter eval |
+| Eval / Regression | 当前 13 cases；公司研究报告链路尚未进入 case runner，MU 可作为首个 fixture case | 更多 live failure cases、citation checks、company thesis/report cases | continuity/golden chapter eval |
 | Model Routing | 未实现 | 按 task/risk/cost 选择模型 | writer/reviewer model split |
 
 这份 backlog 要持续保留。不要把它压缩成 P1 Day 6/Day 7 或 P2 手动研究流程；这些只是阶段性学习与展示产物，不是完整 L3 生产化终点。
@@ -488,7 +488,7 @@ Day 6 在 VPS 上记录的最新验证命令：
 - Embedding 与 pgvector retrieval。
 - Retrieval-to-Source/Fact bridge。
 - Monitor / Alert loop：alert rules、scheduled checks、event-to-research-run、mini memo。
-- P2A-MU Thesis Pack 的项目化接入：把手动 thesis、support/oppose evidence、invalidators 转成 `Source` / `Fact` / `Claim` / `Evidence`，并进入 memo renderer、guardrail、trace、case runner。
+- P2A 用户输入驱动的公司研究报告链路：从用户问题识别公司/研究意图，加载对应 company research pack，把 thesis、support/oppose evidence、invalidators 转成 `Source` / `Fact` / `Claim` / `Evidence`，并进入 memo renderer、guardrail、trace、case runner；MU 只作为首个 fixture/use case。
 - 显式 intent router、planner、tool budget、degradation policy。
 - HITL approval gates，目前只有 rendered confirmation questions。
 - Model routing。
@@ -505,8 +505,8 @@ Day 6 在 VPS 上记录的最新验证命令：
 | 2026-06-04 Thu | P1 Day 6：Investment Memo output shape | memo renderer、evidence table、freshness notes、unknowns/conflicts、trace reference | 已完成，commit `e269555` |
 | 2026-06-05 Fri | P1 Day 7：P1 summary 与 interview material | P1 summary doc、architecture explanation、3-minute pitch、resume bullets | 已完成，commit `5dedac7` |
 | 2026-06-06 Sat | Progress source-of-truth refresh + resume package v1 cleanup | 全景图更新为主事实源；README/showcase/resume snippet 更新；final demo commands 验证 | 当前任务；v1 可进入最终 review |
-| 2026-06-07 Sun | First application batch 或 P2A 工程化启动 | 用 P1 story 投递第一批 Agent / AI application roles；或将 MU manual thesis pack 接入 P1 loop | 取决于投递优先级 |
-| 2026-06-08 至 2026-06-12 | P2 Data depth and citation richness / P2A-MU engineering | external URL citation、provider reliability、确定性数据分析工具、analysis result -> Fact；或 MU thesis pack -> Source/Fact/eval | 边投递边增强 |
+| 2026-06-07 Sun | First application batch 或 P2A 工程化启动 | 用 P1 story 投递第一批 Agent / AI application roles；或启动用户输入 -> 公司研究报告最小闭环，MU 作为首个验证用例 | 取决于投递优先级 |
+| 2026-06-08 至 2026-06-12 | P2 Data depth and citation richness / P2A company report engineering | external URL citation、provider reliability、确定性数据分析工具、analysis result -> Fact；或 User Query -> Company Research Report -> Source/Fact/eval | 边投递边增强 |
 | 2026-06-13 至 2026-06-16 | P3 Portfolio risk intelligence | exposure facts、concentration risk、drawdown/volatility、scenario stress test、risk memo sections | 技术深度更强 |
 | 2026-06-17 至 2026-06-20 | P4 Knowledge Memory / RAG | filings/transcripts/notes ingestion、retrieval-to-Source/Fact、citation eval | 更强生产级版本 |
 | 约 2026-06-21 | Production-grade v2 checkpoint | P1 + P2/P3 integrated narrative and demo；P4 可作为后续增强 | 更强面试版本 |
@@ -574,17 +574,36 @@ Day 6 在 VPS 上记录的最新验证命令：
 边界判断：
 
 - 这些资产是 P2 的研究输入和人工流程，不代表 P2A 项目化完成。
-- 项目化完成的标准仍然是：manual thesis / invalidators / monitoring facts 进入 `Source` / `Fact`，由 synthesizer 生成有 evidence 的 `Claim`，memo renderer 输出 `Investment Thesis` / `Thesis Invalidators` 等章节，guardrail 和 case runner 能验证它。
+- MU 不是产品功能边界，只是第一个 fixture/use case；真正能力应该由用户输入决定公司和研究问题。
+- 项目化完成的标准仍然是：用户问题先经过 intent / entity 解析，加载对应 company research pack；manual thesis / invalidators / monitoring facts 进入 `Source` / `Fact`，由 synthesizer 生成有 evidence 的 `Claim`，memo renderer 输出 `Investment Thesis` / `Thesis Invalidators` 等章节，guardrail 和 case runner 能验证它。
 
-### 下一工程切片候选：P2A-MU Thesis Pack 接入主链路
+### 下一工程切片候选：P2A 用户输入驱动的公司研究报告链路
 
-如果优先做工程化而不是 resume/application cleanup，下一步只做一个小切片：
+如果优先做工程化而不是 resume/application cleanup，下一步只做一个小切片：让用户输入一个投资研究问题，系统识别公司和研究意图，加载对应 company research pack，并输出用户可读的公司研究 memo。MU 只作为首个 fixture/use case，不是专用功能。
 
+最小链路：
+
+```text
+User Query
+ -> Intent Router
+ -> Entity Resolver
+ -> Company Research Pack Loader
+ -> Source / Fact
+ -> Claim / Evidence
+ -> Guardrail
+ -> User-facing Company Research Memo
+ -> Trace / Eval
+```
+
+验收重点：
+
+- 支持用户用自然语言提出公司研究问题，例如“帮我分析一下美光 MU，市场是不是已经打满 HBM 超级周期？”
+- 系统能识别公司 / ticker / 研究意图，而不是硬编码 MU。
 - 新增最小 thesis / invalidator model。
-- 将 MU fixture research pack 转成 `Source` / `Fact`。
+- 将匹配到的 fixture research pack 转成 `Source` / `Fact`。
 - memo 增加 `Investment Thesis` 与 `Thesis Invalidators` section。
-- case runner 增加 `mu_hbm_thesis_pack`。
-- 验证 memo 不给买卖建议，且 MU thesis、支持证据、反方证据、证伪条件、人工确认问题都出现，关键 claims 都绑定 evidence。
+- case runner 增加公司研究报告 fixture case，MU 可作为第一条。
+- 验证 memo 不给买卖建议，且 thesis、支持证据、反方证据、证伪条件、人工确认问题都出现，关键 claims 都绑定 evidence。
 
 
 ## 新 Codex 会话阅读顺序
