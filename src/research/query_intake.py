@@ -18,7 +18,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from src.research.models import FactNeed, IntentRoute, QueryIntake, ResearchPlan, ResolvedEntity
+from src.research.attribution_planner import build_attribution_plan
+from src.research.models import AttributionPlan, FactNeed, IntentRoute, QueryIntake, ResearchPlan, ResolvedEntity, TimeWindow
+from src.research.time_window import resolve_time_window
 
 
 DEFAULT_ENTITY = ResolvedEntity(
@@ -83,6 +85,8 @@ class QueryUnderstanding:
      * @property route - 根据问题意图选择出的工作流路由。
      * @property entity - 下游工具要使用的 ticker/公司目标。
      * @property plan - 描述必需/可选证据的事实计划。
+     * @property time_window - 用户问题对应的研究时间窗口。
+     * @property attribution_plan - 涨跌原因问题需要核验的归因证据计划。
      */
     """
 
@@ -90,6 +94,8 @@ class QueryUnderstanding:
     route: IntentRoute
     entity: ResolvedEntity
     plan: ResearchPlan
+    time_window: TimeWindow
+    attribution_plan: AttributionPlan
 
 
 def understand_query(user_query: str, symbol_override: str | None = None, company_query_override: str | None = None) -> QueryUnderstanding:
@@ -109,7 +115,16 @@ def understand_query(user_query: str, symbol_override: str | None = None, compan
     route = route_intent(intake)
     entity = resolve_entity(user_query, symbol_override=symbol_override, company_query_override=company_query_override)
     plan = plan_research(route, entity)
-    return QueryUnderstanding(intake=intake, route=route, entity=entity, plan=plan)
+    time_window = resolve_time_window(user_query)
+    attribution_plan = build_attribution_plan(route, entity, time_window, user_query)
+    return QueryUnderstanding(
+        intake=intake,
+        route=route,
+        entity=entity,
+        plan=plan,
+        time_window=time_window,
+        attribution_plan=attribution_plan,
+    )
 
 
 def parse_query_intake(user_query: str) -> QueryIntake:

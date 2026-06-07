@@ -102,26 +102,48 @@ class LiveToolResultProvider:
          * @param news_days - planner/caller 请求的新闻回看窗口。
          * @returns 与 fixture provider 输出形态一致的 ToolResultBundle。
          *
-         * @remarks 实时 MCP 后端依赖会保留在这个方法内部导入；这样 fixture 研究 run 即使不安装网络/实时数据依赖，也能验证查询入口、研究计划、报告渲染和 guardrail。
+         * @remarks 每个实时工具独立导入和执行，避免某个依赖缺失导致整轮研究
+         * 全部失败；失败会进入结构化 failure fact，而不是伪装成 fixture 数据。
          */
         """
-
-        from src.mcp_servers.corporate_actions_server import get_corporate_actions
-        from src.mcp_servers.finance_server import _fetch_history, _fetch_quote
-        from src.mcp_servers.news_server import _fetch_news
 
         preferences = _safe_tool_result("memory.get_preferences", lambda: store.get_all_preferences() or default_preferences())
         return ToolResultBundle(
             data_source=self.data_source,
             preferences=preferences,
-            quote=_safe_tool_result("finance.get_quote", lambda: _fetch_quote(symbol)),
-            history=_safe_tool_result("finance.get_history", lambda: _fetch_history(symbol, history_days)),
-            news=_safe_tool_result("news.get_news", lambda: _fetch_news(company_query, news_days, "en")),
-            corporate_actions=_safe_tool_result(
-                "corporate_actions.get_corporate_actions",
-                lambda: get_corporate_actions(symbol, include_dividends=False),
-            ),
+            quote=_safe_tool_result("finance.get_quote", lambda: _live_quote(symbol)),
+            history=_safe_tool_result("finance.get_history", lambda: _live_history(symbol, history_days)),
+            news=_safe_tool_result("news.get_news", lambda: _live_news(company_query, news_days)),
+            corporate_actions=_safe_tool_result("corporate_actions.get_corporate_actions", lambda: _live_corporate_actions(symbol)),
         )
+
+
+def _live_quote(symbol: str) -> dict[str, Any]:
+    from src.mcp_servers.finance_server import _fetch_quote
+
+    return _fetch_quote(symbol)
+
+
+def _live_history(symbol: str, history_days: int) -> dict[str, Any]:
+    from src.mcp_servers.finance_server import _fetch_history
+
+    return _fetch_history(symbol, history_days)
+
+
+def _live_news(company_query: str, news_days: int) -> dict[str, Any]:
+    from src.mcp_servers.news_server import _fetch_news
+
+    return _fetch_news(company_query, news_days, "en")
+
+
+def _live_corporate_actions(symbol: str) -> dict[str, Any]:
+    from src.mcp_servers.corporate_actions_server import get_corporate_actions
+
+    return get_corporate_actions(symbol, include_dividends=False)
+
+
+def _tool_failure(tool_name: str, reason: str, **params: Any) -> dict[str, Any]:
+    return {"error": f"{tool_name} failed: {reason}", "params": params}
 
 
 def _safe_tool_result(tool_name: str, fetch: Callable[[], dict[str, Any]]) -> dict[str, Any]:

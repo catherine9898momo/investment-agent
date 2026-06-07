@@ -1,7 +1,7 @@
 """基于证据的研究 demo，用于验证 P0 投资研究边界。
 
-默认模式使用确定性的 fixture 数据，这样无需网络也能验证 guardrail 和 trace 路径。
-如果使用 --data-source live，则复用真实 MCP server 后端函数获取 quote/history/news/corporate-actions 结果。
+默认模式优先使用 live 数据源，尽量复用真实 MCP server 后端函数获取 quote/history/news/corporate-actions 结果。
+fixture 只作为离线测试模式；如果 live 依赖或网络不可用，系统会生成可追踪的缺失证据，而不是伪装成真实结论。
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import argparse
 from dataclasses import asdict
 
 from src.research.evaluator import evaluate_research_output
+from src.research.fact_verifier import build_verified_fact_table
 from src.research.memo_renderer import memo_trace_payload, render_investment_memo
 from src.research.models import ResearchRunState, to_json
 from src.research.normalizers import normalize_tool_result_bundle
@@ -33,7 +34,7 @@ DEBUG_COMMANDS = {"/debug", "debug"}
 def build_research_run(
     user_query: str,
     synthesizer_name: str = "mock",
-    data_source: str = "fixture",
+    data_source: str = "live",
     symbol: str | None = None,
     company_query: str | None = None,
     history_days: int = 5,
@@ -95,6 +96,8 @@ def build_research_run_from_bundle(
     run.intent_route = understanding.route
     run.resolved_entity = understanding.entity
     run.research_plan = understanding.plan
+    run.time_window = understanding.time_window
+    run.attribution_plan = understanding.attribution_plan
 
     trace = TraceLogger(run)
     trace.append("run_started", {"run_id": run.run_id, "query": user_query})
@@ -110,6 +113,11 @@ def build_research_run_from_bundle(
         trace.append("source_added", source)
     for fact in run.facts:
         trace.append("fact_added", fact)
+
+    verified_facts, missing_facts = build_verified_fact_table(run.facts, run.attribution_plan)
+    run.verified_facts = verified_facts
+    run.missing_facts = missing_facts
+    trace.append("verified_fact_table", {"verified_facts": verified_facts, "missing_facts": missing_facts})
 
     synthesizer = make_synthesizer(synthesizer_name)
     synthesis = synthesizer.synthesize(run)
@@ -210,8 +218,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--data-source",
         choices=["fixture", "live"],
-        default="fixture",
-        help="fixture 是确定性离线数据；live 会复用真实 MCP server 后端函数。",
+        default="live",
+        help="live 会复用真实 MCP server 后端函数；fixture 是确定性离线测试数据。",
     )
     parser.add_argument(
         "--synthesizer",

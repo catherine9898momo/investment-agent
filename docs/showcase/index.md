@@ -40,7 +40,7 @@
 | "为什么选 MCP 不选 LangChain？" | [ADR-001](./adr/001-why-mcp-not-langchain.md) |
 | "为什么不让 LLM 联网搜？" | [ADR-003](./adr/003-corporate-actions-data-source.md) · 决策树 |
 | "你考虑过哪些备选方案？" | [adr/](./adr/) 全部 5 篇都有 Alternatives Considered 段 |
-| "你的工程方法论是什么？" | [ADR-004 知识分层](./adr/004-knowledge-layering.md) + [ADR-005 description vs inputSchema](./adr/005-description-vs-inputschema.md) |
+| "你的工程方法论是什么？" | [ADR-004 知识分层](./adr/004-knowledge-layering.md) + [ADR-005 description vs inputSchema](./adr/005-description-vs-inputschema.md) + [复杂目标防漂移](../methodology/goal-drift-control.md) |
 
 ### 公域 / 技术品牌
 
@@ -60,6 +60,7 @@
 | 📄 一页纸 Case Study | [case-study-corporate-actions.md](./case-study-corporate-actions.md) | ✅ |
 | 🎨 架构图集（4 张 Mermaid） | [diagrams/](./diagrams/) | ✅ |
 | 📋 ADR 决策记录（5 篇） | [adr/](./adr/) | ✅ |
+| 📋 复杂目标防漂移方法论 | [../methodology/goal-drift-control.md](../methodology/goal-drift-control.md) | ✅ |
 | 🎤 电梯演讲 + 3 分钟脚本 | [elevator-pitch-and-3min-script.md](./elevator-pitch-and-3min-script.md) | ✅ |
 | ✍️ 技术博客（3 篇大纲） | [blog/](./blog/) | ✅ 大纲完成 · 🔲 展开成稿（按 W4/W5/W6 节奏） |
 | 🌐 HTML 站点 | MkDocs Material | 🔲 W4 收尾日 1 启动 |

@@ -10,6 +10,7 @@
 | 文档 | 主题 | 触发场景 |
 |---|---|---|
 | [llm-hop-minimization.md](./llm-hop-minimization.md) | **LLM hop 最小化原则** — 关键事实 hop=0，模糊判断 hop>0 OK | 5/14 用户自发推导，注意力机制压缩偏移的工程对策 |
+| [goal-drift-control.md](./goal-drift-control.md) | **复杂目标防漂移** — 将目标、计划、决策和验收外化为可审计状态 | 长任务中连续确认 yes 后，模型遗忘原始目标与早期规划 |
 | [architecture.md](./architecture.md) | 跨 Server 协作、知识分层、LLM 训练知识稳定性 | W2 D4 3 Server 协作 + corporate_actions 反例闭环 |
 | [cross-server-cases.md](./cross-server-cases.md) | 跨 Server 调用的 5 个真实 case（含反例 + 涌现行为） | W2 D3-D5 实战记录 |
 | [experiment-decision-framework.md](./experiment-decision-framework.md) | 推理 vs 实测的 3 维 ROI 评分矩阵 | W1 D3 inputSchema A/B 实验决策时抽象 |
@@ -18,7 +19,7 @@
 
 ## 阅读路径建议
 
-**面试官 / 终面架构师**：直接读 [`architecture.md`](./architecture.md) 第 2-3 节（跨 Server 协作 + 知识分层），是 P6+ 能力评估最直接的证据。
+**面试官 / 终面架构师**：直接读 [`architecture.md`](./architecture.md) 第 2-3 节（跨 Server 协作 + 知识分层），再读 [`goal-drift-control.md`](./goal-drift-control.md) 看复杂目标执行治理，是 P6+ 能力评估最直接的证据。
 
 **技术一面**：读 [`cross-server-cases.md`](./cross-server-cases.md) 看 5 个真实 case，每个都有量化数据。
 

@@ -37,7 +37,8 @@ def test_render_investment_memo_is_user_readable_and_keeps_debug_ids_out_of_body
     payload = memo_trace_payload(run)
 
     assert "# TSLA 研究简报" in output
-    assert "## 先说结论" in output
+    assert "## 研究结论" in output
+    assert "## 原因排序" in output
     assert "## 发生了什么" in output
     assert "## 关键依据" in output
     assert "## 风险与不确定性" in output

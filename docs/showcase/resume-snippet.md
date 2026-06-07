@@ -146,7 +146,8 @@ Python · claude-agent-sdk · MCP 协议 · SQLite · yfinance
 - ✅ MCP 协议 / Function Calling / Tool Use
 - ✅ Prompt Engineering / description A/B
 - ✅ claude-agent-sdk / Hook 工程化 / 回归测试
-- ⚠️ 上下文工程 / 上下文压缩（W5 推进中，5/29 投递后补强）
+- ✅ 上下文工程 / 复杂目标防漂移 / 目标状态外化
+- ⚠️ 上下文压缩（W5 推进中，5/29 投递后补强）
 - ⚠️ 记忆系统 / 长短期记忆（W6 推进中）/ ✅ 知识分层（已有）
 - ✅ 金融垂直 / 垂直领域 Agent
 - ✅ Python / SQLite

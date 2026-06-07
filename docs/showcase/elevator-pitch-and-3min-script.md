@@ -163,6 +163,7 @@
 | 没有 orchestrator 怎么保证调用顺序对？ | 不是保证"顺序对"，是 description 边界写清楚。LLM 自主规划。description A/B 10/10 验证 |
 | 涌现行为不就是 LLM 随机的吗？ | 不是随机。description nudge 后的可复现行为。Case D' 三个涌现都来自 description 边界设计的"溢出效应" |
 | 工具池扩展到 100 个还成立吗？ | 实测到 4 Server 仍稳定。10+ 的边界还没测，是 W3 的待办之一 |
+| 复杂目标多轮执行怎么防止 LLM 走偏？ | 不靠模型自己记住，把 Goal Brief、Execution Plan、Decision Log、验收标准外化成稳定状态；每 3-5 个子任务做一次漂移审计。关键金句：不要让关键控制面只存在于上下文里 |
 | MCP 相比 LangChain 优势在哪？ | 跨客户端复用。同一份 Server 被 Desktop / Code / 自研 Agent 零修改使用。详见 ADR-001 |
 | 你怎么发现这个反例的？ | 同一天两次同问句答案不一致，刚好被我撞到。这是为什么我现在每个 case 都跑 2-3 次 session 看稳定性 |
 | 这个项目花了多久？ | 主线 W1-W2 加反例闭环：约 4 天纯实施时间（5/11-5/14）。架构思考 + 沉淀 + 抽查另算 |
@@ -184,5 +185,6 @@
 
 - 录屏脚本（5 min 版，含画面节奏）：将与本脚本共用骨架（待补）
 - 反例叙事原文：[case-study-corporate-actions.md](./case-study-corporate-actions.md)
+- 复杂目标防漂移方法论：[goal-drift-control.md](../methodology/goal-drift-control.md)
 - 简历段落（口述时的硬核数据来源）：[resume-snippet.md](./resume-snippet.md)
 - 通道 2 抽查记录：`learning/LEARNING_PROFILE.md` 待抽查清单

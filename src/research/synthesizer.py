@@ -145,7 +145,7 @@ class MockLLMResearchSynthesizer:
         human_confirmation_points = [
             f"你关注 {entity_symbol} 的核心投资论点是什么？例如产品周期、行业景气、财务质量、管理层，还是估值修复？",
             "是否有目标估值纪律和最大回撤承受边界？",
-            "是否允许切换到实时数据源，再生成正式研究报告？",
+            "是否允许补齐实时数据依赖和网络访问，再生成正式研究报告？",
         ]
         if data_quality_facts:
             human_confirmation_points.append("请人工确认 stale、missing 或 conflicting 数据质量限制后，再决定是否生成正式 memo。")

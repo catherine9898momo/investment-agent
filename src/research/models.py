@@ -158,6 +158,103 @@ class FactNeed:
 
 
 @dataclass
+class TimeWindow:
+    """/**
+     * 用户问题对应的研究时间窗口。
+     *
+     * @property label - 用户可读的窗口名称，例如“最近 5 个交易日”。
+     * @property start_date - ISO 日期字符串，表示窗口开始。
+     * @property end_date - ISO 日期字符串，表示窗口结束。
+     * @property confidence - 规则解析置信度。
+     * @property rationale - 为什么这样解释时间窗口。
+     */
+    """
+
+    label: str
+    start_date: str
+    end_date: str
+    confidence: Literal["high", "medium", "low"] = "medium"
+    rationale: str = ""
+
+
+@dataclass
+class AttributionNeed:
+    """/**
+     * 归因分析需要核验的一类证据。
+     *
+     * @property key - 归因证据类型，例如 price_move、sector_move。
+     * @property description - 用户可读说明。
+     * @property required - 是否为回答该问题的必需证据。
+     */
+    """
+
+    key: str
+    description: str
+    required: bool = True
+
+
+@dataclass
+class AttributionPlan:
+    """/**
+     * “为什么涨/跌”类问题的归因证据计划。
+     *
+     * @property question_type - price_drop、price_rise 或 general。
+     * @property needs - 需要核验的归因证据集合。
+     * @property peer_symbols - 用于同行/板块比较的 ticker。
+     * @property index_symbols - 用于指数/ETF 背景比较的 ticker。
+     */
+    """
+
+    question_type: Literal["price_drop", "price_rise", "general"]
+    needs: list[AttributionNeed]
+    peer_symbols: list[str] = field(default_factory=list)
+    index_symbols: list[str] = field(default_factory=list)
+
+
+@dataclass
+class VerifiedFact:
+    """/**
+     * 已核验或可追踪的事实。
+     *
+     * @property id - verified fact id。
+     * @property fact_type - price_move、news_events 等研究事实类型。
+     * @property text - 用户可读事实文本。
+     * @property source_ids - 支撑该事实的 source id。
+     * @property observed_at - 事实观测时间。
+     * @property confidence - 核验置信度。
+     * @property verification_status - verified 或 partial。
+     * @property raw_fact_id - 对应原始 Fact id。
+     */
+    """
+
+    id: str
+    fact_type: str
+    text: str
+    source_ids: list[str]
+    observed_at: str
+    confidence: Literal["high", "medium", "low"] = "medium"
+    verification_status: Literal["verified", "partial"] = "verified"
+    raw_fact_id: str | None = None
+    value: Any | None = None
+
+
+@dataclass
+class MissingFact:
+    """/**
+     * 为避免幻觉而显式记录的缺失证据。
+     *
+     * @property fact_type - 缺失的事实类型。
+     * @property reason - 为什么它对当前问题重要。
+     * @property required - 是否是必需缺口。
+     */
+    """
+
+    fact_type: str
+    reason: str
+    required: bool = True
+
+
+@dataclass
 class ResearchPlan:
     """/**
      * 针对当前用户问题的证据收集和报告形态清单。
@@ -192,6 +289,10 @@ class ResearchRunState:
     intent_route: IntentRoute | None = None
     resolved_entity: ResolvedEntity | None = None
     research_plan: ResearchPlan | None = None
+    time_window: TimeWindow | None = None
+    attribution_plan: AttributionPlan | None = None
+    verified_facts: list[VerifiedFact] = field(default_factory=list)
+    missing_facts: list[MissingFact] = field(default_factory=list)
 
     @classmethod
     def start(cls, user_query: str) -> "ResearchRunState":

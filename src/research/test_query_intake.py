@@ -12,6 +12,8 @@ def test_routes_news_and_valuation_queries() -> None:
     assert news.entity.symbol == "0700.HK"
     assert news.route.route == "news_explanation"
     assert "news" in {need.key for need in news.plan.fact_needs}
+    assert news.time_window
+    assert news.attribution_plan
 
     valuation = understand_query("美光现在估值贵吗？")
     assert valuation.entity.symbol == "MU"
@@ -41,3 +43,4 @@ def test_routes_drop_language_to_news_explanation() -> None:
 
     assert understanding.entity.symbol == "MU"
     assert understanding.route.route == "news_explanation"
+    assert understanding.attribution_plan.question_type == "price_drop"

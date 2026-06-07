@@ -8,8 +8,8 @@ from src.research.models import Claim, Evidence, Fact, ResearchRunState, Source
 
 
 MEMO_SECTIONS = [
-    "先说结论",
-    "发生了什么",
+    "研究结论",
+    "原因排序",
     "关键依据",
     "风险与不确定性",
     "还需要确认",
@@ -48,8 +48,11 @@ def render_investment_memo(run: ResearchRunState) -> str:
     sections = [
         f"# {title_name} 研究简报",
         "",
-        "## 先说结论",
+        "## 研究结论",
         *executive_summary_lines(run),
+        "",
+        "## 原因排序",
+        *cause_ranking_lines(run),
         "",
         "## 发生了什么",
         *what_happened_lines(run),
@@ -79,26 +82,66 @@ def display_entity(run: ResearchRunState) -> tuple[str, str | None]:
 
 
 def executive_summary_lines(run: ResearchRunState) -> list[str]:
-    """/** 生成用户最先看到的一句话结论和边界说明。 */"""
+    """/** 生成用户最先看到的研究结论，而不是事实罗列。 */"""
 
     symbol, _ = display_entity(run)
     lines: list[str] = []
-    quote = _fact_by_metric(run, "latest_price")
-    change_pct = _quote_change_pct(quote)
+    if run.time_window:
+        lines.append(f"- 研究窗口：{run.time_window.label}（{run.time_window.start_date} 至 {run.time_window.end_date}）。")
 
-    if _query_mentions_drop(run.user_query) and change_pct is not None and change_pct >= 0:
-        lines.append(
-            f"- 当前可用数据并不能证明 {symbol} 正在“大跌”：最新价格快照显示涨跌幅约为 {change_pct:.2f}%。因此，这一轮更适合先核对实时行情，再解释下跌原因。"
-        )
-    elif _query_mentions_drop(run.user_query):
-        lines.append(f"- 这轮问题可以按“{symbol} 为什么下跌”来研究，但当前证据仍不足以直接归因到单一原因。")
+    change_pct = _quote_change_pct(_fact_by_metric(run, "latest_price"))
+    news_titles = _all_news_titles(run)
+    causes = _infer_cause_candidates(run)
+    confidence = _attribution_confidence(run, causes)
+
+    if _query_mentions_drop(run.user_query):
+        if change_pct is not None and change_pct >= 0:
+            lines.append(
+                f"- 结论：当前可核验价格并不支持“{symbol} 最近大跌”这个前提；最新价格快照显示约上涨 {change_pct:.2f}%。应先核对你所指的具体日期或交易时段。"
+            )
+        elif causes:
+            primary = causes[0]
+            move_text = f"，价格快照显示跌幅约 {abs(change_pct):.2f}%" if change_pct is not None else ""
+            lines.append(
+                f"- 结论：这次更像是“{primary['label']}”主导的回撤{move_text}，而不是已经核验的公司行动或单一突发基本面恶化。"
+            )
+            lines.append(f"- 置信度：{confidence}。原因是已有价格/新闻线索，但板块 ETF、同行涨跌和宏观背景仍未完全核验。")
+        else:
+            lines.append(f"- 结论：可以按“{symbol} 为什么下跌”来研究，但当前缺少足够证据，不能负责任地给出确定归因。")
+    elif causes:
+        lines.append(f"- 结论：当前最主要的研究线索是“{causes[0]['label']}”，但仍需要更多实时市场背景确认。")
     else:
-        lines.append(f"- 当前证据足以支持对 {symbol} 做一轮研究梳理，但不足以生成任何买卖、加减仓或持有建议。")
+        lines.append(f"- 结论：当前证据足以支持对 {symbol} 做一轮研究梳理，但不足以形成明确归因或交易建议。")
 
+    if news_titles:
+        lines.append(f"- 已核验新闻线索：{news_titles[0]}")
     if run.intake and run.intake.wants_direct_trading_advice:
         lines.append("- 你问法里包含交易动作，我会把它转成研究问题处理，不给直接交易指令。")
     else:
-        lines.append("- 下面是基于现有来源的研究判断，不是交易建议。")
+        lines.append("- 这不是交易建议；它只是基于已核验证据和缺失证据的研究判断。")
+    return lines
+
+
+def cause_ranking_lines(run: ResearchRunState) -> list[str]:
+    """/** 把可核验线索压成主因/次因/排除项。 */"""
+
+    causes = _infer_cause_candidates(run)
+    lines: list[str] = []
+    change_pct = _quote_change_pct(_fact_by_metric(run, "latest_price"))
+    if _query_mentions_drop(run.user_query) and change_pct is not None and change_pct >= 0:
+        lines.append("1. **暂不做下跌归因**：当前可核验价格没有确认下跌，先需要确认你指的是哪一天、哪个交易时段或哪个价格口径。")
+        return lines
+    if causes:
+        for idx, cause in enumerate(causes, start=1):
+            lines.append(f"{idx}. **{cause['label']}**：{cause['reason']}")
+    else:
+        lines.append("1. **暂不能排序**：当前缺少足够的价格、新闻或板块证据，不能把原因写成确定结论。")
+
+    if _has_corporate_actions_fact(run):
+        lines.append("- **已排除/低优先级因素**：当前公司行动数据没有显示本轮涨跌可直接归因于拆股或股息；它更像是需要排除的背景项。")
+    for missing in _important_missing_facts(run):
+        if missing.fact_type in {"sector_move", "peer_moves"}:
+            lines.append(f"- **仍需核验**：{missing.reason}")
     return lines
 
 
@@ -118,6 +161,8 @@ def key_evidence_lines(run: ResearchRunState) -> list[str]:
     """/** 输出简洁证据摘要，不暴露 fact_id/source_id。 */"""
 
     lines: list[str] = []
+    if run.time_window:
+        lines.append(f"- 研究窗口：{run.time_window.label}（{run.time_window.start_date} 至 {run.time_window.end_date}）。")
     quote = _fact_by_metric(run, "latest_price")
     history = _fact_by_metric(run, "five_day_close_range")
     news = _fact_by_metric(run, "news_tone")
@@ -146,6 +191,9 @@ def risk_and_uncertainty_lines(run: ResearchRunState) -> list[str]:
     ]
     if _uses_fixture_data(run):
         lines.append("- 数据限制：当前使用的是演示数据，不应当当作真实市场结论；正式研究需要切换到实时数据源。")
+    for missing in _important_missing_facts(run):
+        prefix = "关键缺口" if missing.required else "可选缺口"
+        lines.append(f"- {prefix}：{missing.reason}")
     quality_facts = [fact for fact in run.facts if _is_data_quality_metric(fact.metric)]
     for fact in quality_facts:
         lines.append(f"- 数据质量提示：{_humanize_fact_text(fact)}")
@@ -169,7 +217,79 @@ def source_summary_lines(run: ResearchRunState) -> list[str]:
     for source in run.sources:
         source_name = _source_display_name(source)
         lines.append(f"- 来源：{source_name}；获取时间：{source.fetched_at}；可靠性：{_reliability_label(source.reliability)}")
+    if run.verified_facts or run.missing_facts:
+        lines.append(f"- 事实核验：已形成 {len(run.verified_facts)} 条可追踪事实，另有 {len(run.missing_facts)} 项证据缺口。")
     return lines
+
+
+def _infer_cause_candidates(run: ResearchRunState) -> list[dict[str, str]]:
+    titles = _all_news_titles(run)
+    title_blob = " ".join(titles).lower()
+    causes: list[dict[str, str]] = []
+
+    if any(keyword in title_blob for keyword in ("chip sector", "semiconductor", "sector suffers", "worst day", "芯片", "半导体")):
+        causes.append({
+            "label": "半导体板块风险偏好回落",
+            "reason": "已核验新闻标题直接提到芯片/半导体板块承压；这说明下跌可能不只是美光单一事件，但仍需用 SOXX/SMH 和同行涨跌进一步确认。",
+        })
+    if any(keyword in title_blob for keyword in ("stock falls", "shares tumble", "falls again", "大跌", "下跌")):
+        causes.append({
+            "label": "个股交易情绪转弱",
+            "reason": "新闻线索显示 MU 股价连续走弱或 shares tumble，说明市场短期情绪承压；但这不是完整基本面归因。",
+        })
+    if any(keyword in title_blob for keyword in ("demand", "margin", "competition", "需求", "利润率", "竞争")):
+        causes.append({
+            "label": "需求、利润率或竞争预期被重新定价",
+            "reason": "已核验新闻线索集中在需求、利润率或竞争压力，这更像预期层面的重新定价，而不是单一公司行动。",
+        })
+    if any(keyword in title_blob for keyword in ("ceo", "sold", "insider", "出售")):
+        causes.append({
+            "label": "管理层减持/获利了结引发的情绪压力",
+            "reason": "已核验新闻标题提到 CEO 出售股票，这类信息通常会放大短期获利了结或情绪压力，但需要核验交易规模、计划性质和公告时间。",
+        })
+    if any(keyword in title_blob for keyword in ("approval", "nvidia", "memory-chip", "surged")):
+        causes.append({
+            "label": "利好兑现后的预期回撤",
+            "reason": "新闻线索显示此前存在 Nvidia 相关存储芯片认可或股价大涨背景；如果利好后仍下跌，更像预期兑现后的回撤，需要结合涨幅和估值核验。",
+        })
+    change_pct = _quote_change_pct(_fact_by_metric(run, "latest_price"))
+    if not causes and change_pct is not None and change_pct < 0:
+        causes.append({
+            "label": "价格层面的短期回撤",
+            "reason": "价格快照显示短期下跌，但当前新闻、板块和同行证据不足，不能进一步确定具体原因。",
+        })
+    return causes
+
+
+def _attribution_confidence(run: ResearchRunState, causes: list[dict[str, str]]) -> str:
+    missing_required = {missing.fact_type for missing in run.missing_facts if missing.required}
+    if not causes:
+        return "低"
+    if {"sector_move", "peer_moves"}.intersection(missing_required):
+        return "中低"
+    if missing_required:
+        return "中"
+    return "中高"
+
+
+def _all_news_titles(run: ResearchRunState) -> list[str]:
+    titles: list[str] = []
+    for metric in ("news_tone", "unknown_news"):
+        fact = _fact_by_metric(run, metric)
+        if fact:
+            titles.extend(_news_titles(fact))
+    return titles
+
+
+def _has_corporate_actions_fact(run: ResearchRunState) -> bool:
+    return _fact_by_metric(run, "corporate_actions") is not None
+
+
+def _important_missing_facts(run: ResearchRunState) -> list:
+    if not run.missing_facts:
+        return []
+    priority = {"sector_move", "peer_moves", "earnings_or_guidance", "macro_context", "analyst_actions"}
+    return [missing for missing in run.missing_facts if missing.fact_type in priority]
 
 
 def _fact_by_metric(run: ResearchRunState, metric: str) -> Fact | None:
@@ -264,7 +384,21 @@ def _reliability_label(reliability: str) -> str:
 
 
 def _humanize_fact_text(fact: Fact) -> str:
+    if fact.metric and fact.metric.startswith("failure_"):
+        return _humanize_failure_fact(fact)
+    if fact.metric and fact.metric.startswith("missing_news"):
+        return "新闻结果缺失，暂时不能支持新近新闻归因。"
     return fact.text.replace(" quote snapshot", " 价格快照").replace("Recent news snapshot", "近期新闻快照")
+
+
+def _humanize_failure_fact(fact: Fact) -> str:
+    tool_label = {
+        "failure_latest_price": "价格工具",
+        "failure_five_day_close_range": "历史行情工具",
+        "failure_news_tone": "新闻工具",
+        "failure_corporate_actions": "公司行动工具",
+    }.get(fact.metric or "", "数据工具")
+    return f"{tool_label}本轮未能返回可核验结果；相关结论需要等待实时数据补齐。"
 
 
 def _query_mentions_drop(query: str) -> bool:
