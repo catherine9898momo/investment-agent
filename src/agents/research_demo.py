@@ -9,6 +9,8 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict
 
+from src.research.claim_verifier import filter_synthesis_to_verified_claims, verify_synthesis_claims
+from src.research.context_builder import build_research_context, research_context_to_prompt_payload
 from src.research.evaluator import evaluate_research_output
 from src.research.fact_verifier import build_verified_fact_table
 from src.research.memo_renderer import memo_trace_payload, render_investment_memo
@@ -119,11 +121,18 @@ def build_research_run_from_bundle(
     run.missing_facts = missing_facts
     trace.append("verified_fact_table", {"verified_facts": verified_facts, "missing_facts": missing_facts})
 
+    run.research_context = build_research_context(run)
+    trace.append("research_context_built", research_context_to_prompt_payload(run.research_context))
+
     synthesizer = make_synthesizer(synthesizer_name)
     synthesis = synthesizer.synthesize(run)
     trace.append("synthesis_result", synthesis)
 
-    run.claims.extend(bind_claims_to_evidence(run, synthesis))
+    run.claim_verification = verify_synthesis_claims(run, synthesis)
+    trace.append("claim_verification", run.claim_verification)
+    verified_synthesis = filter_synthesis_to_verified_claims(synthesis, run.claim_verification)
+
+    run.claims.extend(bind_claims_to_evidence(run, verified_synthesis))
     run.human_confirmation_points = synthesis.human_confirmation_points
     run.raw_synthesis = synthesis.raw_model_output
     for claim in run.claims:

@@ -255,6 +255,79 @@ class MissingFact:
 
 
 @dataclass
+class ContextFact:
+    """/** LLM context 中允许被引用的一条事实。 */"""
+
+    fact_id: str
+    fact_type: str
+    text: str
+    source_ids: list[str]
+    observed_at: str
+    confidence: Literal["high", "medium", "low"]
+    verification_status: Literal["verified", "partial"]
+    value: Any | None = None
+
+
+@dataclass
+class ContextMissingFact:
+    """/** LLM context 中显式暴露的证据缺口。 */"""
+
+    fact_type: str
+    reason: str
+    required: bool
+
+
+@dataclass
+class ResearchContext:
+    """/**
+     * 给 evidence-constrained LLM 使用的最小研究上下文。
+     *
+     * @remarks 这个对象刻意比 ResearchRunState 小：它只暴露问题理解、可引用事实、证据缺口和输出约束，
+     * 避免 synthesis 层从整个 run state 中随意引入未经核验的信息。
+     */
+    """
+
+    user_query: str
+    entity: ResolvedEntity | None
+    intent_route: IntentRoute | None
+    time_window: TimeWindow | None
+    attribution_plan: AttributionPlan | None
+    facts: list[ContextFact]
+    missing_facts: list[ContextMissingFact]
+    source_ids: list[str]
+    user_preferences: list[ContextFact] = field(default_factory=list)
+    unsupported_claim_constraints: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ClaimVerificationIssue:
+    """/** Claim verifier 发现的模型输出问题。 */"""
+
+    claim_text: str
+    issue_type: Literal[
+        "unsupported_fact_id",
+        "missing_evidence",
+        "direct_trading_advice",
+        "missing_fact_used_as_support",
+        "price_only_causal_inference",
+        "low_confidence_overstated",
+    ]
+    message: str
+    severity: Literal["info", "warning", "error"] = "warning"
+    fact_ids: list[str] = field(default_factory=list)
+    retrieval_needed: bool = False
+
+
+@dataclass
+class ClaimVerificationResult:
+    """/** 对一批 candidate claims 的核验结果。 */"""
+
+    passed: bool
+    issues: list[ClaimVerificationIssue]
+    accepted_claim_indexes: list[int] = field(default_factory=list)
+
+
+@dataclass
 class ResearchPlan:
     """/**
      * 针对当前用户问题的证据收集和报告形态清单。
@@ -293,6 +366,8 @@ class ResearchRunState:
     attribution_plan: AttributionPlan | None = None
     verified_facts: list[VerifiedFact] = field(default_factory=list)
     missing_facts: list[MissingFact] = field(default_factory=list)
+    research_context: ResearchContext | None = None
+    claim_verification: ClaimVerificationResult | None = None
 
     @classmethod
     def start(cls, user_query: str) -> "ResearchRunState":

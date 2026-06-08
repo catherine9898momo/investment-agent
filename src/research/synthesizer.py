@@ -24,6 +24,7 @@ except ModuleNotFoundError:
 
         return None
 
+from src.research.context_builder import build_research_context, research_context_to_prompt_payload
 from src.research.models import Claim, Evidence, ResearchRunState, new_id
 
 load_dotenv()
@@ -231,22 +232,15 @@ def _parse_structured_json(raw: str) -> dict[str, Any]:
 
 
 def build_synthesis_prompt(run: ResearchRunState) -> str:
-    fact_rows = [
-        {
-            "fact_id": fact.id,
-            "text": fact.text,
-            "metric": fact.metric,
-            "source_ids": fact.source_ids,
-            "observed_at": fact.observed_at,
-        }
-        for fact in run.facts
-    ]
+    context = run.research_context or build_research_context(run)
+    payload = research_context_to_prompt_payload(context)
     return (
         "You are an investment research synthesizer, not a trading advisor.\n"
-        "Use only the facts below. Do not introduce new factual claims.\n"
+        "Use only context.facts. Do not introduce new factual claims.\n"
         "Every claim text must be a complete standalone sentence and must not end mid-phrase.\n"
-        "Do not recommend buying, selling, adding, trimming, holding, shorting, or clearing a position.\n"
-        "Treat stale_*, missing_*, failure_*, unknown_*, and conflicting_* facts as risk_factor or unknown claims, not as supporting conclusions.\n"
+        "Every claim must cite fact_ids that appear in context.facts.\n"
+        "Missing facts are evidence gaps, not facts to convert into conclusions.\n"
+        "Follow every unsupported_claim_constraints item in the context.\n"
         "Return a single JSON object with this schema:\n"
         "{\n"
         '  "claims": [\n'
@@ -254,8 +248,7 @@ def build_synthesis_prompt(run: ResearchRunState) -> str:
         "  ],\n"
         '  "human_confirmation_points": ["..."]\n'
         "}\n\n"
-        f"User query: {run.user_query}\n"
-        f"Facts: {json.dumps(fact_rows, ensure_ascii=False)}\n"
+        f"Context: {json.dumps(payload, ensure_ascii=False)}\n"
     )
 
 
