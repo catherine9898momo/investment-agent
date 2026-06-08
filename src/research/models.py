@@ -328,6 +328,46 @@ class ClaimVerificationResult:
 
 
 @dataclass
+class RetrievalTask:
+    """/**
+     * Claim verifier 之后的结构化补证任务。
+     *
+     * @property fact_type - 需要补齐或增强的事实类型。
+     * @property issue_type - 触发该任务的 verifier issue 类型。
+     * @property query_focus - 给后续 executor/provider 的检索焦点。
+     * @property candidate_tools - 后续可执行阶段优先尝试的工具名。
+     * @property source_requirements - 对来源可靠性的要求。
+     * @property symbols - 当前任务涉及的 ticker 或 ETF/index symbol。
+     */
+    """
+
+    fact_type: str
+    issue_type: str
+    query_focus: str
+    priority: Literal["high", "medium", "low"]
+    reason: str
+    candidate_tools: list[str] = field(default_factory=list)
+    source_requirements: list[str] = field(default_factory=list)
+    symbols: list[str] = field(default_factory=list)
+    fact_ids: list[str] = field(default_factory=list)
+    claim_text: str = ""
+
+
+@dataclass
+class RetrievalNeedPlan:
+    """/**
+     * 把 retrieval_needed=True 的 verifier issue 转成可执行前的补证任务清单。
+     *
+     * @remarks 这个计划只描述“应该查什么”，不负责联网或写入 verified fact table。
+     */
+    """
+
+    user_query: str
+    tasks: list[RetrievalTask]
+    issue_count: int
+
+
+@dataclass
 class ResearchPlan:
     """/**
      * 针对当前用户问题的证据收集和报告形态清单。
@@ -368,6 +408,7 @@ class ResearchRunState:
     missing_facts: list[MissingFact] = field(default_factory=list)
     research_context: ResearchContext | None = None
     claim_verification: ClaimVerificationResult | None = None
+    retrieval_need_plan: RetrievalNeedPlan | None = None
 
     @classmethod
     def start(cls, user_query: str) -> "ResearchRunState":
