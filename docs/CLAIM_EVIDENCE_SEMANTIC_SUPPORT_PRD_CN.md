@@ -66,6 +66,9 @@ Bound Fact: 公司最近股价上涨 8%。
   - 当前检查重点是 fact id 合法性、缺失 evidence、直接交易建议、缺失事实被当支持、价格单独因果推断、低置信度过度表述。
 - `src/research/retrieval_planner.py`
   - 可把 `retrieval_needed=True` 的 verifier issue 转成结构化 `RetrievalTask`。
+- `src/research/evaluator.py`
+  - 当前承担 memo 输出后的 guardrail 检查，输入是 `ResearchRunState` 和最终 markdown/text 输出，输出是 `GuardrailResult`。
+  - 它检查最终用户可见输出是否包含直接交易建议、关键 claim 是否有 evidence、evidence source 是否有 timestamp、输出是否提到证据/时间/风险/人工确认问题。
 
 ### 4.2 能力缺口
 
@@ -74,6 +77,8 @@ Bound Fact: 公司最近股价上涨 8%。
 - `claim_verifier` 没有 claim-to-fact compatibility matrix。
 - 没有 metric direction rules，无法判断“改善/恶化/合理/过高/下降/增长”等方向性 claim 与 fact value 是否一致。
 - 没有受约束的 entailment judge 输出结构。
+- `LLMResearchSynthesizer.synthesize()` 当前接口接收完整 `ResearchRunState`，接口权限大于真实 LLM 所需范围；真实 LLM 应收敛为只读取 `ResearchContext`。
+- `missing_facts` 当前进入 `ResearchContext` 的主要目的，是提醒 LLM 不要把缺口编造成结论；自动补证闭环尚未实现，需要明确轮次、任务数和停止条件，避免无限循环。
 
 ## 5. 功能需求
 
@@ -306,7 +311,192 @@ verdict: str | None = None
 - “估值合理 + latest price only” 生成 valuation multiple 与 peer/historical range 任务。
 - “现金流改善 + FCF 下降” 不生成支持性补证作为默认修复；该 claim 被过滤或进入 conflict/unknown。
 
-### FR8. Trace、Memo 与 Eval
+### FR8. Synthesizer 输入边界收紧
+
+当前 `LLMResearchSynthesizer.synthesize(run: ResearchRunState)` 的接口让 synthesizer 可以读取完整 run state。这个设计方便 mock fixture，但不符合真实 LLM 的最小权限原则。真实 LLM 路径必须改为只读取 `ResearchContext`。
+
+目标接口：
+
+```python
+class LLMResearchSynthesizer(Protocol):
+    def synthesize(self, context: ResearchContext) -> SynthesisResult:
+        ...
+```
+
+中文字段说明：
+
+```text
+ResearchContext
+  # 真实 LLM 的唯一输入。
+  # 里面只包含可引用 facts、missing_facts、source_ids、用户问题、实体、时间窗口和输出约束。
+
+ResearchRunState
+  # 编排层状态容器。
+  # 可以被 orchestrator、trace、verifier、renderer 使用，但不应该直接暴露给真实 LLM。
+```
+
+实施要求：
+
+- `AnthropicJSONResearchSynthesizer` 必须接收 `ResearchContext` 或由调用方提前传入 `run.research_context`。
+- mock synthesizer 可以短期保留 adapter，但不能作为真实 LLM 接口设计的理由。
+- `build_synthesis_prompt()` 改为接收 `ResearchContext`，不得在函数内部从完整 run 重新构造 prompt。
+- 如果 `run.research_context is None`，编排层应先调用 `build_research_context(run)`，而不是让 synthesizer 自行读取完整 run。
+
+验收：
+
+- 真实 LLM prompt payload 中不包含 `ResearchRunState` 全量字段。
+- 单元测试覆盖：传入 context 能生成 prompt；缺少 context 时由 orchestrator 报错或先构建 context。
+- `CandidateClaim.fact_ids` 只能引用 `context.facts[*].fact_id`。
+
+### FR9. Missing Facts 与有限补证闭环
+
+`MissingFact` 的语义不是“系统已经知道但尚未填入的事实”，而是“当前任务需要、但本轮工具结果没有覆盖到的事实类型”。因此 `context_builder` 不负责补全 missing facts，它只负责把缺口暴露给 LLM，防止 LLM 把证据缺口编造成结论。
+
+链路语义：
+
+```text
+AttributionPlan.needs
+  # 当前任务理论上需要哪些证据槽位，例如 sector_move、peer_moves、macro_context。
+
+VerifiedFact.fact_type
+  # 本轮工具结果已经覆盖到哪些事实类型。
+
+MissingFact
+  # needs 中尚未被 verified facts 覆盖的事实类型。
+
+ResearchContext.missing_facts
+  # 传给 LLM 的显式缺口提醒，让 LLM 输出 unknown/risk，而不是伪造原因。
+
+RetrievalNeedPlan
+  # 后续补证计划，只描述该查什么，不直接等于已经补齐。
+```
+
+未来如实现自动补证 executor，必须是有限循环：
+
+```python
+MAX_RETRIEVAL_ROUNDS = 2
+MAX_TASKS_PER_ROUND = 5
+
+for round_index in range(MAX_RETRIEVAL_ROUNDS):
+    context = build_research_context(run)
+    synthesis = synthesizer.synthesize(context)
+    verification = verify_synthesis_claims(run, synthesis)
+
+    if verification.passed:
+        break
+
+    plan = build_retrieval_need_plan(run, verification)
+    tasks = dedupe_and_limit(plan.tasks, MAX_TASKS_PER_ROUND)
+
+    if not tasks:
+        break
+
+    new_facts = execute_retrieval_tasks(tasks)
+    if not new_facts:
+        break
+
+    merge_new_verified_facts(run, new_facts)
+```
+
+停止条件：
+
+- 达到 `MAX_RETRIEVAL_ROUNDS`。
+- 当前 verification 没有 error 或 retrieval-needed issue。
+- retrieval plan 没有新任务。
+- 新一轮检索没有产生新的 verified facts。
+- 同一个 issue/fact_type/symbol 组合重复出现，进入 human confirmation，而不是继续空转。
+
+验收：
+
+- 缺失 `sector_move` 时，LLM 输出必须承认证据缺口。
+- 补证任务最多执行配置允许的轮次。
+- 重复补证任务被去重。
+- 无法补齐时进入 `human_confirmation_points` 或 unknown/conflict，而不是继续循环。
+
+### FR10. Guardrail 与 Semantic Verifier 的关系
+
+Guardrail 是最终输出闸门，不替代 claim-level semantic verification。
+
+当前 guardrail 函数：
+
+```python
+def evaluate_research_output(run: ResearchRunState, output: str) -> GuardrailResult:
+    ...
+```
+
+输入说明：
+
+```text
+run
+  # 已完成 synthesis、claim verification、evidence binding、memo rendering 前后的研究状态。
+  # guardrail 会读取 run.claims、claim.evidence、source.fetched_at、human_confirmation_points。
+
+output
+  # memo renderer 生成的最终用户可见文本。
+  # guardrail 会扫描里面是否出现直接交易建议、证据/来源、时间戳、风险和人工确认内容。
+```
+
+输出说明：
+
+```python
+@dataclass
+class GuardrailResult:
+    passed: bool
+    # 所有 policy checks 是否通过。
+
+    checks: list[PolicyCheck]
+    # 每条 policy check 的结果。
+
+@dataclass
+class PolicyCheck:
+    name: str
+    # 检查项名称，例如 no_direct_trading_advice。
+
+    passed: bool
+    # 单项是否通过。
+
+    message: str
+    # 人类可读说明。
+
+    severity: Literal["info", "warning", "error"]
+    # 严重程度。
+```
+
+当前位置：
+
+```text
+bind_claims_to_evidence
+  # 生成 Claim / Evidence。
+
+-> render_investment_memo
+  # 把结构化 run 渲染成用户可见 memo。
+
+-> evaluate_research_output
+  # guardrail 检查最终输出。
+
+-> run.status = completed 或 blocked
+  # guardrail 失败时 run 被标记 blocked。
+```
+
+与证据相关性校验的分工：
+
+```text
+claim_verifier / semantic verifier
+  # 发生在 memo 渲染前。
+  # 检查每条 CandidateClaim 和 bound facts 是否相关、充分、方向一致。
+
+guardrail / evaluator
+  # 发生在 memo 渲染后。
+  # 检查最终输出有没有越界、是否展示证据、时间、风险和人工确认点。
+```
+
+验收：
+
+- semantic verifier 判定 error 的 claim 不进入 memo。
+- guardrail 仍检查最终输出是否无交易建议、关键 claim 有 evidence、source 有 timestamp。
+- guardrail 不承担 claim-fact 语义蕴含判断，避免把最终文本扫描器变成事实裁判。
+
+### FR11. Trace、Memo 与 Eval
 
 Trace 新增事件或 payload：
 

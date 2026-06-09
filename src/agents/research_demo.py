@@ -128,9 +128,9 @@ def build_research_run_from_bundle(
     synthesis = synthesizer.synthesize(run)
     trace.append("synthesis_result", synthesis)
 
-    run.claim_verification = verify_synthesis_claims(run, synthesis)
+    run.claim_verification = verify_synthesis_claims(run, synthesis, trace=trace)
     trace.append("claim_verification", run.claim_verification)
-    verified_synthesis = filter_synthesis_to_verified_claims(synthesis, run.claim_verification)
+    verified_synthesis = filter_synthesis_to_verified_claims(synthesis, run.claim_verification, trace=trace)
 
     run.claims.extend(bind_claims_to_evidence(run, verified_synthesis))
     run.human_confirmation_points = synthesis.human_confirmation_points
@@ -147,6 +147,18 @@ def build_research_run_from_bundle(
 
     trace.append("final_output", {"text": output})
     trace.append("guardrail_result", guardrail)
+    trace.append_function_io(
+        "src.agents.research_demo",
+        "build_research_run_from_bundle",
+        {
+            "user_query": user_query,
+            "synthesizer_name": synthesizer_name,
+            "symbol": symbol,
+            "bundle": bundle,
+            "understanding": understanding,
+        },
+        run,
+    )
     trace.append("run_completed", asdict(run))
     return run
 
