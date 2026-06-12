@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from math import isfinite
 from typing import Any
 
 from src.research.models import Fact, Source, new_id, utc_now_iso
@@ -187,13 +188,24 @@ def summarize_history_fact(symbol: str, history: dict[str, Any]) -> str:
     bars = history.get("bars") or []
     if not bars:
         return f"{symbol} history tool returned no bars."
-    closes = [bar.get("close") for bar in bars if bar.get("close") is not None]
+    closes = _finite_closes(bars)
     if not closes:
         return f"{symbol} history bars did not include close prices."
     return (
         f"{symbol} {history.get('period')} close range: {min(closes)} to {max(closes)}; "
         f"latest close {closes[-1]}."
     )
+
+
+def _finite_closes(bars: list) -> list[float]:
+    closes: list[float] = []
+    for bar in bars:
+        if not isinstance(bar, dict):
+            continue
+        close = bar.get("close")
+        if isinstance(close, (int, float)) and isfinite(float(close)):
+            closes.append(float(close))
+    return closes
 
 
 def summarize_news_fact(news: dict[str, Any]) -> str:
@@ -273,7 +285,7 @@ def _has_error(value: dict[str, Any]) -> bool:
 
 def _valid_history(history: dict[str, Any]) -> bool:
     bars = history.get("bars") or []
-    return any(bar.get("close") is not None for bar in bars)
+    return bool(_finite_closes(bars))
 
 
 def _first_present_timestamp(value: dict[str, Any], keys: list[str]) -> str | None:
@@ -308,7 +320,7 @@ def _parse_datetime(value: str) -> datetime | None:
 
 def _history_direction(history: dict[str, Any]) -> str:
     bars = history.get("bars") or []
-    closes = [bar.get("close") for bar in bars if isinstance(bar.get("close"), int | float)]
+    closes = _finite_closes(bars)
     if len(closes) < 2 or closes[0] == 0:
         return "unknown"
     change_pct = ((closes[-1] - closes[0]) / closes[0]) * 100

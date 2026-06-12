@@ -1,6 +1,6 @@
 # 架构图集
 
-> 4 张图按"系统总览 → 设计模式 → 真实调用 → 时间叙事"递进，覆盖所有简历素材场景。
+> 7 张图按"系统总览 → 设计模式 → 真实调用 → 时间叙事 → 研究运行时序 → 研究流水线架构 → UML 类图"递进，覆盖 README、Case Study、面试解释和当前 P1 research loop 讲解场景。
 
 | # | 图名 | 类型 | 主用途 |
 |---|---|---|---|
@@ -8,6 +8,9 @@
 | [B](./02-knowledge-layering.md) | 知识分层设计模式（触发器 / 事实 / 建议） | flowchart | ADR-004 主图 / 博客封面 |
 | [C](./03-case-d-sequence.md) | Case D' 7 次工具调用时序 | sequenceDiagram | Case Study 配图 / 录屏第 3 段 |
 | [D](./04-closed-loop-timeline.md) | 反例闭环 24h 时间线 | timeline | 终面 / 录屏第 4 段升华 |
+| [E](./05-research-run-sequence.md) | 单次 Investment Research Run 时序 | sequenceDiagram | 解释 P1 research pipeline / 澄清不是 multi-agent orchestrator |
+| [F](./06-research-pipeline-flow.md) | 研究流水线架构图（LLM Synthesizer 位置修正版） | flowchart | 总览 P1 research pipeline / 说明 LLM 位于 facts/context 之后 |
+| [G](./07-research-domain-class-diagram.md) | UML 类图（ResearchRunState / Evidence / Provider / Synthesizer） | classDiagram | 说明核心数据模型、接口和实现关系 |
 
 ---
 
@@ -23,6 +26,9 @@
 | 5 分钟录屏 | 开场 A · 设计段 B · 实跑段 C · 升华 D |
 | 简历附件最后一页 | D（视觉收尾） |
 | 面试现场白板 | A 简化版（3 个框 + 3 条线） |
+| 解释当前 research loop | E |
+| 展示修正后的 P1 pipeline 架构 | F |
+| 解释核心类和数据模型关系 | G |
 
 ### 面试答题速查
 
@@ -34,6 +40,10 @@
 | "你能主导技术决策吗？" | D |
 | "为什么不让 LLM 联网搜？" | B（"web_search hop=1，关键事实必须 hop=0"） |
 | "涌现行为是 LLM 随机吗？" | C（涌现 3 行为表） |
+| "这个项目是 multi-agent / orchestrator 吗？" | E（single-agent pipeline，编排研究步骤和工具，不编排多个 agent） |
+| "LLM synthesizer 在哪里？" | E 或 F（Source/Fact 和 ResearchContext 之后，Claim/Evidence 之前） |
+| "当前架构图怎么画才准确？" | F |
+| "ResearchRunState / Claim / Evidence 是什么关系？" | G |
 
 ---
 
@@ -51,7 +61,7 @@
 
 ## 设计统一性
 
-四张图共享一套配色，让面试官在 4 张图之间切换不会出戏：
+图集共享一套配色，让面试官在多张图之间切换不会出戏：
 
 | 颜色 | 含义 |
 |---|---|

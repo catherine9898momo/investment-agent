@@ -16,8 +16,8 @@ Python · Anthropic structured outputs · MCP/tool use · SQLite · yfinance · 
 - 设计并实现 production-shaped investment research loop：live tool provider -> normalizer -> Source / Fact -> structured LLM synthesis -> Claim / Evidence binding -> Guardrail -> deterministic memo renderer -> JSONL trace -> regression case runner。
 - 将 quote、history、news、corporate actions、preferences 等工具输出规范化为可追踪 Source / Fact，约束 LLM 只能生成 evidence-bound Claim，并通过 Evidence 将关键结论绑定回 fact/source/timestamp。
 - 实现金融研究 guardrails：禁止直接 buy/sell/add/trim/hold/short/clear-position advice，要求关键 claim 有证据、source 有 timestamp、输出包含 risks / unknowns / human confirmation points。
-- 构建回归评估体系：10 条中文 direct-advice boundary cases + 3 条 frozen data-quality cases，覆盖 stale quote、missing news、conflicting signals；Day 6 验证 `pytest` 18 passed、fixture suite 13/13、live boundary suite 10/10。
-- 新增 deterministic investment memo renderer，输出 Boundary Statement、Executive Summary、Evidence Table、Risks、Unknowns / Conflicts、Freshness Notes、Human Confirmation Points、Trace Reference，并写入 `memo_rendered` trace event。
+- 构建回归评估体系：10 条中文 direct-advice boundary cases + 3 条 frozen data-quality cases，覆盖 stale quote、missing news、conflicting signals；当前验证 `pytest` 45 passed、fixture suite 13/13（Engineering correctness: 100%）、此前 live boundary suite 10/10。
+- 新增 deterministic investment memo renderer，输出 研究结论、原因排序、发生了什么、关键依据、风险与不确定性、还需要确认、数据来源与时效，并写入 `memo_rendered` trace event。
 
 一句话版：
 

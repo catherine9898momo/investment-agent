@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 investment-research = "src.agents.research_demo:main"
+research-trace-view = "src.research.trace_viewer:main"
 
 [project.optional-dependencies]
 dev = [

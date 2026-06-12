@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 
 from src.research.models import Claim, Evidence, Fact, ResearchRunState, Source
 
@@ -10,6 +11,7 @@ from src.research.models import Claim, Evidence, Fact, ResearchRunState, Source
 MEMO_SECTIONS = [
     "研究结论",
     "原因排序",
+    "发生了什么",
     "关键依据",
     "风险与不确定性",
     "还需要确认",
@@ -219,6 +221,8 @@ def source_summary_lines(run: ResearchRunState) -> list[str]:
         lines.append(f"- 来源：{source_name}；获取时间：{source.fetched_at}；可靠性：{_reliability_label(source.reliability)}")
     if run.verified_facts or run.missing_facts:
         lines.append(f"- 事实核验：已形成 {len(run.verified_facts)} 条可追踪事实，另有 {len(run.missing_facts)} 项证据缺口。")
+    if run.trace_path:
+        lines.append(f"- Trace 日志：{run.trace_path}")
     return lines
 
 
@@ -322,7 +326,7 @@ def _history_line(run: ResearchRunState) -> str:
     if not fact or not isinstance(fact.value, dict):
         return "- 历史行情：当前没有足够的历史价格数据。"
     bars = fact.value.get("bars") or []
-    closes = [bar.get("close") for bar in bars if isinstance(bar, dict) and bar.get("close") is not None]
+    closes = _finite_closes(bars)
     if not closes:
         return "- 历史行情：有历史数据返回，但缺少收盘价。"
     return f"- 历史行情：近 {len(closes)} 个交易日收盘价区间约为 {min(closes)} 到 {max(closes)}，最新收盘价为 {closes[-1]}。"
@@ -346,6 +350,17 @@ def _corporate_actions_line(run: ResearchRunState) -> str:
     splits = value.get("splits_count")
     factor = value.get("cumulative_split_factor")
     return f"- 公司行动：当前来源显示拆股记录数量为 {splits}，累计拆股因子为 {factor}；解释涨跌前需要排除拆股/股息影响。"
+
+
+def _finite_closes(bars: list) -> list[float]:
+    closes: list[float] = []
+    for bar in bars:
+        if not isinstance(bar, dict):
+            continue
+        close = bar.get("close")
+        if isinstance(close, (int, float)) and isfinite(float(close)):
+            closes.append(float(close))
+    return closes
 
 
 def _news_titles(fact: Fact) -> list[str]:
@@ -373,7 +388,7 @@ def _history_evidence_text(fact: Fact) -> str:
     value = fact.value
     if isinstance(value, dict):
         bars = value.get("bars") or []
-        closes = [bar.get("close") for bar in bars if isinstance(bar, dict) and bar.get("close") is not None]
+        closes = _finite_closes(bars)
         if closes:
             return f"近 {len(closes)} 个交易日收盘价区间约为 {min(closes)} 到 {max(closes)}，最新收盘价为 {closes[-1]}。"
     return _humanize_fact_text(fact)

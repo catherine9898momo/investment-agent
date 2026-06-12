@@ -34,9 +34,9 @@
 >
 > Trace 是我认为 production loop 里很关键的一环。每次 run 都会写 JSONL，包括 tool_result、fact_added、synthesis_result、claim_added、memo_rendered 和 guardrail_result。这样如果 live run 出错，我可以知道是哪一步出了问题，然后把它沉淀成 regression case。
 >
-> Eval 方面，现在有 10 条 direct-advice boundary cases，覆盖买、卖、加仓、减仓、持有、做空、清仓等中文表达；还有 3 条 frozen data-quality cases，覆盖 stale quote、missing news 和 conflicting signals。Day 6 验证里 ruff 全过，pytest 18 passed，fixture all suite 13/13，live boundary suite 10/10。
+> Eval 方面，现在有 10 条 direct-advice boundary cases，覆盖买、卖、加仓、减仓、持有、做空、清仓等中文表达；还有 3 条 frozen data-quality cases，覆盖 stale quote、missing news 和 conflicting signals。当前验证里 ruff 全过，pytest 45 passed，fixture all suite 13/13（Engineering correctness: 100%）；此前 live boundary suite 10/10。
 >
-> Day 6 还加了 deterministic investment memo renderer，输出固定 memo sections：Boundary Statement、Executive Summary、Evidence Table、Risks、Unknowns、Freshness Notes、Human Confirmation Points 和 Trace Reference。这个 renderer 不是再让 LLM 写一遍，而是把已经审计过的 Source / Fact / Claim / Evidence 投影成 memo。
+> Day 6 还加了 deterministic investment memo renderer，输出固定 memo sections：研究结论、原因排序、发生了什么、关键依据、风险与不确定性、还需要确认和数据来源与时效。这个 renderer 不是再让 LLM 写一遍，而是把已经审计过的 Source / Fact / Claim / Evidence 投影成 memo。
 >
 > 所以这个项目当前最能体现的是：evidence in，constrained synthesis，policy gate，trace out，regression back into the system。
 

@@ -44,6 +44,7 @@ def test_render_investment_memo_is_user_readable_and_keeps_debug_ids_out_of_body
     assert "## 风险与不确定性" in output
     assert "## 还需要确认" in output
     assert "## 数据来源与时效" in output
+    assert "Trace 日志：logs/research_traces/test.jsonl" in output
     assert "交易建议" in output
     assert "claim_research" not in output
     assert "fact_quote" not in output
@@ -53,3 +54,39 @@ def test_render_investment_memo_is_user_readable_and_keeps_debug_ids_out_of_body
     assert rows[0].claim_id == "claim_research"
     assert payload["format"] == "investment_memo_v2"
     assert payload["evidence_row_count"] == 1
+
+
+
+def test_render_investment_memo_filters_nan_history_close() -> None:
+    run = ResearchRunState.start("帮我看 MU 最近为什么大跌？")
+    source = Source(
+        id="src_history",
+        kind="tool_result",
+        name="live price history",
+        fetched_at="2026-06-10T00:00:00+00:00",
+        tool_name="finance.get_history",
+    )
+    fact = Fact(
+        id="fact_history",
+        text="MU 5d close range: 864.01 to 1079.57; latest close nan.",
+        source_ids=[source.id],
+        observed_at=source.fetched_at,
+        metric="five_day_close_range",
+        value={
+            "symbol": "MU",
+            "period": "5d",
+            "bars": [
+                {"date": "2026-06-03", "close": 864.01},
+                {"date": "2026-06-04", "close": 1079.57},
+                {"date": "2026-06-10", "close": float("nan")},
+            ],
+        },
+        symbol="MU",
+    )
+    run.sources.append(source)
+    run.facts.append(fact)
+
+    output = render_investment_memo(run)
+
+    assert "nan" not in output.lower()
+    assert "近 2 个交易日收盘价区间约为 864.01 到 1079.57，最新收盘价为 1079.57" in output

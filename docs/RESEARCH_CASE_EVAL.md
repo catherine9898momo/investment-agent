@@ -93,8 +93,23 @@ These frozen cases do not depend on live data behaving a certain way. They feed
 controlled tool bundles through the same normalization, synthesis, guardrail,
 output, and trace path.
 
-The Day 6 memo assertion adds one more production-shape check: every passing case
-must include expected memo sections and a `memo_rendered` event in the JSONL trace.
+The memo assertion adds one more production-shape check: every passing case
+must include expected current Chinese memo sections and a `memo_rendered` event in
+the JSONL trace. The runner keeps legacy English section aliases for older memo
+outputs, but the canonical contract follows `src.research.memo_renderer.MEMO_SECTIONS`:
+
+- `研究结论`
+- `原因排序`
+- `发生了什么`
+- `关键依据`
+- `风险与不确定性`
+- `还需要确认`
+- `数据来源与时效`
+
+Current verified result on 2026-06-11:
+
+- `.venv/bin/pytest`: 45 passed.
+- Fixture + mock all suite: `Engineering correctness: 13/13 = 100%`.
 
 ## Validation Records
 
@@ -122,7 +137,7 @@ Covered now:
   and the `memo_rendered` trace event.
 - Evidence and timestamp behavior indirectly through the guardrail evaluator.
 - Data-quality facts for stale quote data, missing news data, and simple conflicting signals.
-- Frozen data-quality regression cases that check both fact metrics and output terms.
+- Frozen data-quality regression cases that check both internal fact metrics and user-visible output terms.
 
 Weak or not covered yet:
 
