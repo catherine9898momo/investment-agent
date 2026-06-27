@@ -1,6 +1,6 @@
 # 项目全景图与里程碑
 
-最后更新：2026-06-06
+最后更新：2026-06-27
 当前项目进度的主事实来源：本文档。其他文档用于辅助说明、阶段执行记录或具体方案展开。
 
 ## 这个项目为什么存在
@@ -292,11 +292,13 @@ Alert Event -> Research Run -> Mini Memo -> Human Confirmation
   Evidence Binder / Guardrail Evaluator / Trace JSONL
   Research Snapshot renderer / Investment Memo renderer / Evidence Table
   10 条 boundary cases + 3 条 frozen data-quality cases
+  P0 数据质量 gate：有限数字检查、history 有效点分级、quote change mismatch、公司行动窗口/复权口径 warning、异常价格 provenance 初版
   最小 Explainability surface：证据表、freshness notes、unknown/conflict 章节
 
 🟡 部分完成：
   Intent Router / Planner / Runtime recovery
   tool failure handling / freshness rules / conflict rules
+  数据质量 gate 已有 P0 切片，但 attribution level、sector/peer 实证补齐和 trace viewer 质量面板仍未完成
   source reliability / citation surface
   prompt policy / invalid claim filtering
   HITL 目前只是问题清单，还不是 approval gates
@@ -308,6 +310,7 @@ Alert Event -> Research Run -> Mini Memo -> Human Confirmation
 🔲 尚未完成：
   显式 Tool Budget / Provider Registry / Degradation policy
   更丰富的 trace assertions / live failure regression cases
+  trace viewer 质量面板与 `--trace-view` 一键预览
   external URL citations 和 provider reliability matrix
   Data Analysis Layer：估值、波动、回撤、相关性、因子、压力测试
   Data Analysis result -> Source/Fact 的归一化桥接
@@ -339,7 +342,8 @@ P1 - Regression 与数据质量控制
   4. frozen data-quality cases
   5. trace-to-eval records
   6. memo trace event assertion
-  状态：🟡 部分完成 / ✅ Day 4-6 已完成主要切片；仍缺 live failure cases 和更丰富的 trace assertions
+  7. P0 数据可信度 gate：history 有效点、quote 有限数字/涨跌幅一致性、公司行动窗口复权口径、异常价格 provenance
+  状态：🟡 部分完成 / ✅ Day 4-6 和 P0 数据质量 gate 已完成主要切片；仍缺 live failure cases、更丰富 trace assertions、sector/peer 实证和 trace viewer 质量面板
 
 P2 - Data depth, research pack, and citation richness
   1. company research pack / thesis memory
@@ -442,22 +446,22 @@ P6 - Role-based review layer（optional）
 
 ## 当前 P1 验证快照
 
-Day 6 在 VPS 上记录的最新验证命令：
+2026-06-27 本地最新验证命令：
 
 ```bash
-.venv/bin/ruff check src/agents/research_demo.py src/research/*.py src/eval/research_case_runner.py
+.venv/bin/python -m pytest src/research/test_data_quality.py src/research/test_normalizers.py src/research/test_memo_renderer.py
 .venv/bin/python -m pytest
 .venv/bin/python -m src.eval.research_case_runner --data-source fixture --synthesizer mock --suite all
-.venv/bin/python -m src.eval.research_case_runner --data-source live --synthesizer mock --suite boundary
+.venv/bin/ruff check src/research/data_quality.py src/research/normalizers.py src/research/fact_verifier.py src/research/memo_renderer.py src/research/test_data_quality.py src/research/test_normalizers.py src/research/test_memo_renderer.py
 ```
 
 观测结果：
 
-- `pytest`：18 passed。
-- fixture + mock all suite：13/13 PASS，且每条 case 都包含 `memo_trace=True`。
-- live + mock boundary suite：10/10 PASS，且每条 case 都包含 `memo_trace=True`。
-- fixture + mock demo：Investment Research Memo rendered，Guardrail PASS。
-- live + anthropic 已在 Day 3 验证过，Guardrail PASS。
+- focused data-quality tests：16 passed。
+- `pytest`：60 passed。
+- fixture + mock all suite：13/13 PASS，Engineering correctness = 100%，且每条 case 都包含 `trace=True` / `memo_trace=True`。
+- `ruff check`：All checks passed。
+- 旧 live + mock boundary suite：此前记录为 10/10 PASS；本轮未重新跑 live，避免把外部数据源波动混入 P0 gate 验证。
 
 ## 已完成与未完成
 
@@ -472,6 +476,7 @@ Day 6 在 VPS 上记录的最新验证命令：
 - 10 条 boundary regression suite。
 - 3 条 frozen data-quality suite。
 - 最小 stale quote、missing news、conflict facts。
+- P0 数据质量 gate：`src/research/data_quality.py`、history 有效点分级、quote 有限数字/涨跌幅一致性、窗口内公司行动复权口径 warning、异常价格 provenance 初版。
 - Investment Memo renderer、Evidence Table、Freshness Notes、Unknowns / Conflicts。
 - P1 final narrative 双语文档，用于解释 production research loop、核心概念、eval story、3-minute pitch 和 resume bullets。
 - P2 investment research workbench 方案文档。
@@ -480,6 +485,9 @@ Day 6 在 VPS 上记录的最新验证命令：
 
 尚未完成：
 
+- 归因等级与措辞制度化：`confirmed_cause` / `likely_factor` / `candidate_factor` 等 attribution level 尚未结构化落地。
+- Sector / peer / macro 对照事实补齐：`sector_move` / `peer_moves` 仍主要作为 missing facts 暴露。
+- Trace 产品化：trace viewer 质量面板、`--trace-view` 一键预览、报告 trace preview link。
 - Deterministic Data Analysis Layer：估值、波动、回撤、相关性、因子、压力测试。
 - Analysis result -> Source/Fact bridge。
 - Portfolio / Risk Layer：组合暴露、集中度、行业/资产暴露、组合回撤/波动、情景压力测试。
@@ -559,6 +567,31 @@ Day 6 在 VPS 上记录的最新验证命令：
 - resume/showcase deltas；
 - next-phase plan：Data Analysis、Portfolio Risk、Knowledge/RAG、Monitor 的优先级与边界。
 
+
+### P1/P2 质量闸门更新：P0 数据质量 Gate
+
+状态：已完成 P0 工程切片（2026-06-27，本地未提交状态）。
+
+本轮新增能力：
+
+- `src/research/data_quality.py`：统一有限数字检查、有效 close 过滤和 history 点数分级。
+- `normalizers.py`：history 0/1 个有效 close 不再升级为 close range；2-4 个有效 close 会生成窗口不完整 warning；quote 会检查有限数字和 `change_pct` 一致性。
+- 公司行动窗口检查：当研究窗口内存在 split/dividend 且 quote/history 缺少 adjusted/unadjusted 元数据时，生成 `data_quality_corporate_action_adjustment_uncertain`。
+- 异常价格 provenance 初版：quote 与最新 history close / history mean 偏离过大时生成 `price_provenance_uncertain` 或 `conflicting_price_sources`。
+- `fact_verifier.py` / `memo_renderer.py`：新数据质量 fact 进入 verified fact table，并在 memo 中以用户可读方式提示数据不足、窗口不完整、复权口径不明或 provenance 待复核。
+
+验证结果：
+
+- focused data-quality tests：16 passed。
+- full pytest：60 passed。
+- fixture case runner：13/13 PASS，Engineering correctness = 100%。
+- ruff changed files：All checks passed。
+
+边界判断：
+
+- 本轮解决的是“数据进入结论前的准入和降级”，不是完整归因矩阵。
+- 仍未完成 sector/peer 数据实证、attribution level 结构化、trace viewer 质量面板和 `--trace-view` 一键预览。
+
 ### P2 手动研究资产：MU Thesis / Monitoring + Marks 原则库
 
 状态：已有手动流程和辅助资产，但尚未生产化接入。
@@ -579,7 +612,7 @@ Day 6 在 VPS 上记录的最新验证命令：
 
 ### 下一工程切片候选：P2A 用户输入驱动的公司研究报告链路
 
-如果优先做工程化而不是 resume/application cleanup，下一步只做一个小切片：让用户输入一个投资研究问题，系统识别公司和研究意图，加载对应 company research pack，并输出用户可读的公司研究 memo。MU 只作为首个 fixture/use case，不是专用功能。
+当前推荐下一步：启动 P2A 公司研究报告最小闭环。理由是 P0 数据质量 gate 已经能保护基础行情事实，下一层最有复利的能力是把手动 MU thesis / monitoring pack 项目化接入 `Source -> Fact -> Claim -> Evidence -> Memo -> Trace / Eval` 主链路。MU 只作为首个 fixture/use case，不是专用功能。
 
 最小链路：
 

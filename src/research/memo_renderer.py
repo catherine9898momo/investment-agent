@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import isfinite
 
+from src.research.data_quality import classify_history_points, finite_closes
 from src.research.models import Claim, Evidence, Fact, ResearchRunState, Source
 
 
@@ -56,6 +56,9 @@ def render_investment_memo(run: ResearchRunState) -> str:
         "## 原因排序",
         *cause_ranking_lines(run),
         "",
+        "## 归因证据矩阵",
+        *attribution_matrix_lines(run),
+        "",
         "## 发生了什么",
         *what_happened_lines(run),
         "",
@@ -101,11 +104,18 @@ def executive_summary_lines(run: ResearchRunState) -> list[str]:
             lines.append(
                 f"- 结论：当前可核验价格并不支持“{symbol} 最近大跌”这个前提；最新价格快照显示约上涨 {change_pct:.2f}%。应先核对你所指的具体日期或交易时段。"
             )
+        elif run.attribution_causes:
+            primary = run.attribution_causes[0]
+            move_text = f"，价格快照显示跌幅约 {abs(change_pct):.2f}%" if change_pct is not None else ""
+            lines.append(
+                f"- 结论：当前最重要的候选解释是“{primary.label}”{move_text}，归因等级为“{_attribution_level_label(primary.level)}”。"
+            )
+            lines.append(f"- 置信度：{_confidence_label(primary.confidence)}。{_humanize_attribution_rationale(primary.rationale)}")
         elif causes:
             primary = causes[0]
             move_text = f"，价格快照显示跌幅约 {abs(change_pct):.2f}%" if change_pct is not None else ""
             lines.append(
-                f"- 结论：这次更像是“{primary['label']}”主导的回撤{move_text}，而不是已经核验的公司行动或单一突发基本面恶化。"
+                f"- 结论：这次更像是“{primary['label']}”相关的回撤{move_text}，但仍需 sector/peer 证据确认。"
             )
             lines.append(f"- 置信度：{confidence}。原因是已有价格/新闻线索，但板块 ETF、同行涨跌和宏观背景仍未完全核验。")
         else:
@@ -146,6 +156,54 @@ def cause_ranking_lines(run: ResearchRunState) -> list[str]:
             lines.append(f"- **仍需核验**：{missing.reason}")
     return lines
 
+
+
+def attribution_matrix_lines(run: ResearchRunState) -> list[str]:
+    if not run.attribution_causes:
+        return ["- 暂无结构化归因等级；需要补齐价格、新闻、板块和同行事实。"]
+    lines: list[str] = []
+    for cause in run.attribution_causes:
+        lines.append(f"- **{cause.label}**：{_attribution_level_label(cause.level)}；置信度：{_confidence_label(cause.confidence)}。")
+        if cause.rationale:
+            lines.append(f"  - 降级/升级理由：{_humanize_attribution_rationale(cause.rationale)}")
+        if cause.missing_fact_types:
+            lines.append(f"  - 证据缺口：{', '.join(_fact_type_label(item) for item in cause.missing_fact_types)}")
+        if cause.next_checks:
+            lines.append(f"  - 下一步核验：{'；'.join(cause.next_checks)}")
+    return lines
+
+
+def _attribution_level_label(level: str) -> str:
+    return {
+        "confirmed_cause": "已确认原因",
+        "likely_factor": "较可能因素",
+        "candidate_factor": "候选因素",
+        "background_context": "背景信息",
+        "unsupported": "证据不支持",
+    }.get(level, level)
+
+
+def _confidence_label(confidence: str) -> str:
+    return {"high": "高", "medium": "中", "low": "低"}.get(confidence, confidence)
+
+
+def _fact_type_label(fact_type: str) -> str:
+    return {
+        "sector_move": "板块/指数对照",
+        "peer_moves": "同行对照",
+        "news_events": "新闻事件",
+        "price_move": "价格变化",
+    }.get(fact_type, fact_type)
+
+
+def _humanize_attribution_rationale(rationale: str) -> str:
+    mapping = {
+        "Sector and peer coverage supports a likely factor.": "板块和同行覆盖足以支持较可能因素。",
+        "Sector and peer coverage supports a likely factor. Partial symbol failures remain.": "板块和同行覆盖足以支持较可能因素，但仍有部分 symbol 拉取失败。",
+        "Comparison coverage is insufficient for a likely factor.": "板块/同行覆盖不足，不能升级为较可能因素。",
+        "Price/news evidence is present but sector/peer confirmation is incomplete.": "已有价格/新闻线索，但板块和同行确认不完整。",
+    }
+    return mapping.get(rationale, rationale)
 
 def what_happened_lines(run: ResearchRunState) -> list[str]:
     """/** 用用户语言解释行情、新闻和公司行动目前各自说明了什么。 */"""
@@ -322,14 +380,21 @@ def _quote_line(run: ResearchRunState) -> str:
 
 
 def _history_line(run: ResearchRunState) -> str:
+    insufficient = _fact_by_metric(run, "data_quality_history_insufficient")
+    if insufficient:
+        return "- 历史行情：历史行情数据不足，本轮不能使用历史走势作为归因证据。"
     fact = _fact_by_metric(run, "five_day_close_range")
     if not fact or not isinstance(fact.value, dict):
         return "- 历史行情：当前没有足够的历史价格数据。"
     bars = fact.value.get("bars") or []
     closes = _finite_closes(bars)
+    classification = classify_history_points(closes)
     if not closes:
         return "- 历史行情：有历史数据返回，但缺少收盘价。"
-    return f"- 历史行情：近 {len(closes)} 个交易日收盘价区间约为 {min(closes)} 到 {max(closes)}，最新收盘价为 {closes[-1]}。"
+    suffix = ""
+    if not classification.window_complete:
+        suffix = "；但历史窗口不完整，趋势判断需要降级。"
+    return f"- 历史行情：近 {len(closes)} 个有效交易日收盘价区间约为 {min(closes)} 到 {max(closes)}，最新收盘价为 {closes[-1]}{suffix}"
 
 
 def _news_line(run: ResearchRunState) -> str:
@@ -353,14 +418,7 @@ def _corporate_actions_line(run: ResearchRunState) -> str:
 
 
 def _finite_closes(bars: list) -> list[float]:
-    closes: list[float] = []
-    for bar in bars:
-        if not isinstance(bar, dict):
-            continue
-        close = bar.get("close")
-        if isinstance(close, (int, float)) and isfinite(float(close)):
-            closes.append(float(close))
-    return closes
+    return finite_closes(bars)
 
 
 def _news_titles(fact: Fact) -> list[str]:
@@ -390,7 +448,9 @@ def _history_evidence_text(fact: Fact) -> str:
         bars = value.get("bars") or []
         closes = _finite_closes(bars)
         if closes:
-            return f"近 {len(closes)} 个交易日收盘价区间约为 {min(closes)} 到 {max(closes)}，最新收盘价为 {closes[-1]}。"
+            classification = classify_history_points(closes)
+            suffix = "；历史窗口不完整，不能单独支撑趋势判断" if not classification.window_complete else ""
+            return f"近 {len(closes)} 个有效交易日收盘价区间约为 {min(closes)} 到 {max(closes)}，最新收盘价为 {closes[-1]}{suffix}。"
     return _humanize_fact_text(fact)
 
 
@@ -403,6 +463,14 @@ def _humanize_fact_text(fact: Fact) -> str:
         return _humanize_failure_fact(fact)
     if fact.metric and fact.metric.startswith("missing_news"):
         return "新闻结果缺失，暂时不能支持新近新闻归因。"
+    if fact.metric == "data_quality_history_insufficient":
+        return "历史行情数据不足，不能支持区间或趋势判断。"
+    if fact.metric == "data_quality_history_window_incomplete":
+        return "历史行情窗口不完整，趋势判断需要降级。"
+    if fact.metric == "data_quality_corporate_action_adjustment_uncertain":
+        return "研究窗口内存在公司行动，但 quote/history 复权口径不明。"
+    if fact.metric == "price_provenance_uncertain":
+        return "价格与历史行情偏离较大，需要复核 provenance 后再做强归因。"
     return fact.text.replace(" quote snapshot", " 价格快照").replace("Recent news snapshot", "近期新闻快照")
 
 
@@ -618,7 +686,7 @@ def _evidence_row(claim: Claim, evidence: Evidence, fact: Fact, source: Source) 
 def _is_data_quality_metric(metric: str | None) -> bool:
     if not metric:
         return False
-    return metric.startswith(("stale_", "missing_", "failure_", "unknown_", "conflicting_"))
+    return metric.startswith(("stale_", "missing_", "failure_", "unknown_", "conflicting_", "data_quality_", "price_provenance_"))
 
 
 def _cell(value: str) -> str:

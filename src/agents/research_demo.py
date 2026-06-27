@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict
 
+from src.research.attribution_evaluator import evaluate_attribution_causes
 from src.research.claim_verifier import filter_synthesis_to_verified_claims, verify_synthesis_claims
 from src.research.context_builder import build_research_context, research_context_to_prompt_payload
 from src.research.evaluator import evaluate_research_output
@@ -60,7 +61,14 @@ def build_research_run(
 
     understanding = understand_query(user_query, symbol_override=symbol, company_query_override=company_query)
     provider = make_tool_provider(data_source)
-    bundle = provider.fetch(understanding.entity.symbol, understanding.entity.company_query, history_days, news_days)
+    bundle = provider.fetch(
+        understanding.entity.symbol,
+        understanding.entity.company_query,
+        history_days,
+        news_days,
+        sector_items=understanding.attribution_plan.index_items,
+        peer_items=understanding.attribution_plan.peer_items,
+    )
     return build_research_run_from_bundle(
         user_query,
         bundle,
@@ -120,6 +128,8 @@ def build_research_run_from_bundle(
     run.verified_facts = verified_facts
     run.missing_facts = missing_facts
     trace.append("verified_fact_table", {"verified_facts": verified_facts, "missing_facts": missing_facts})
+
+    run.attribution_causes = evaluate_attribution_causes(run)
 
     run.research_context = build_research_context(run)
     trace.append("research_context_built", research_context_to_prompt_payload(run.research_context))

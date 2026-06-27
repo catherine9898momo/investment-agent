@@ -194,6 +194,13 @@ class AttributionNeed:
 
 
 @dataclass
+class PeerUniverseItem:
+    symbol: str
+    group: str
+    label: str = ""
+
+
+@dataclass
 class AttributionPlan:
     """/**
      * “为什么涨/跌”类问题的归因证据计划。
@@ -209,6 +216,8 @@ class AttributionPlan:
     needs: list[AttributionNeed]
     peer_symbols: list[str] = field(default_factory=list)
     index_symbols: list[str] = field(default_factory=list)
+    peer_items: list[PeerUniverseItem] = field(default_factory=list)
+    index_items: list[PeerUniverseItem] = field(default_factory=list)
 
 
 @dataclass
@@ -384,6 +393,18 @@ class ResearchPlan:
 
 
 @dataclass
+class AttributionCause:
+    label: str
+    level: Literal["confirmed_cause", "likely_factor", "candidate_factor", "background_context", "unsupported"]
+    support_fact_ids: list[str]
+    counter_fact_ids: list[str] = field(default_factory=list)
+    missing_fact_types: list[str] = field(default_factory=list)
+    confidence: Literal["high", "medium", "low"] = "low"
+    rationale: str = ""
+    next_checks: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ResearchRunState:
     run_id: str
     user_query: str
@@ -409,6 +430,7 @@ class ResearchRunState:
     research_context: ResearchContext | None = None
     claim_verification: ClaimVerificationResult | None = None
     retrieval_need_plan: RetrievalNeedPlan | None = None
+    attribution_causes: list[AttributionCause] = field(default_factory=list)
 
     @classmethod
     def start(cls, user_query: str) -> "ResearchRunState":

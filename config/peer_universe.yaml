@@ -1,0 +1,77 @@
+defaults:
+  sector_indexes:
+    - symbol: SPY
+      group: broad_market
+      label: 标普 500
+    - symbol: QQQ
+      group: macro_tech
+      label: 纳斯达克科技
+
+universes:
+  magnificent_7:
+    sector_indexes:
+      - {symbol: QQQ, group: macro_tech, label: 纳斯达克科技}
+      - {symbol: XLK, group: us_technology, label: 美国科技板块}
+    symbols: [AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA]
+  chip_core:
+    sector_indexes:
+      - {symbol: QQQ, group: macro_tech, label: 纳斯达克科技}
+      - {symbol: SMH, group: semiconductor, label: 半导体 ETF}
+      - {symbol: SOXX, group: semiconductor, label: 半导体 ETF}
+    symbols: [NVDA, AMD, AVGO, MU, INTC, QCOM, ARM, TSM, ASML, AMAT, LRCX, KLAC]
+  china_internet:
+    sector_indexes:
+      - {symbol: 2800.HK, group: hong_kong_market, label: 香港大盘}
+      - {symbol: 3067.HK, group: hang_seng_tech, label: 恒生科技}
+      - {symbol: KWEB, group: china_internet, label: 中概互联网 ETF}
+    symbols: [0700.HK, 9988.HK, BABA, JD, PDD, BIDU, NTES, TCOM, 3690.HK, 1024.HK]
+  baijiu_consumption:
+    sector_indexes:
+      - {symbol: 000300.SS, group: china_large_cap, label: 沪深 300}
+      - {symbol: 510300.SS, group: china_large_cap_etf, label: 沪深 300 ETF}
+    symbols: [600519.SS, 000858.SZ, 000568.SZ, 600809.SS, 000596.SZ]
+  pop_mart_consumption:
+    sector_indexes:
+      - {symbol: 2800.HK, group: hong_kong_market, label: 香港大盘}
+      - {symbol: 3067.HK, group: hang_seng_tech, label: 恒生科技}
+    symbols: [9992.HK, 2020.HK, 2331.HK, 6690.HK]
+
+symbols:
+  MU:
+    confidence: high
+    rationale: MU 是存储芯片公司，同时受 AI/HBM 叙事和 DRAM/NAND 周期影响。
+    sector_indexes:
+      - {symbol: QQQ, group: macro_tech, label: 纳斯达克科技}
+      - {symbol: SMH, group: semiconductor, label: 半导体 ETF}
+      - {symbol: SOXX, group: semiconductor, label: 半导体 ETF}
+    peers:
+      - {symbol: NVDA, group: ai_semiconductor, label: AI 半导体}
+      - {symbol: AMD, group: ai_semiconductor, label: AI 半导体}
+      - {symbol: AVGO, group: ai_semiconductor, label: AI 半导体}
+      - {symbol: WDC, group: memory_storage, label: 存储链条}
+      - {symbol: STX, group: memory_storage, label: 存储链条}
+      - {symbol: SNDK, group: memory_storage, label: 存储链条}
+  0700.HK:
+    confidence: high
+    rationale: 腾讯按中国互联网和港股科技平台公司比较。
+    universe_refs: [china_internet]
+  TCOM:
+    confidence: high
+    rationale: 携程按中国互联网和在线旅游平台比较。
+    universe_refs: [china_internet]
+    extra_peers:
+      - {symbol: BKNG, group: global_travel_platform, label: 全球旅游平台}
+      - {symbol: EXPE, group: global_travel_platform, label: 全球旅游平台}
+      - {symbol: 9961.HK, group: china_travel_platform, label: 中国在线旅游}
+  PDD:
+    confidence: high
+    rationale: 拼多多按中国互联网、电商和平台公司比较。
+    universe_refs: [china_internet]
+  9992.HK:
+    confidence: medium
+    rationale: 泡泡玛特按港股消费和品牌零售比较，同行置信度低于大型平台公司。
+    universe_refs: [pop_mart_consumption]
+  600519.SS:
+    confidence: high
+    rationale: 贵州茅台按白酒和中国核心消费比较。
+    universe_refs: [baijiu_consumption]

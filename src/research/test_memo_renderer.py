@@ -89,4 +89,56 @@ def test_render_investment_memo_filters_nan_history_close() -> None:
     output = render_investment_memo(run)
 
     assert "nan" not in output.lower()
-    assert "近 2 个交易日收盘价区间约为 864.01 到 1079.57，最新收盘价为 1079.57" in output
+    assert "近 2 个有效交易日收盘价区间约为 864.01 到 1079.57，最新收盘价为 1079.57" in output
+
+
+
+def test_render_investment_memo_explains_insufficient_history_without_range_claim() -> None:
+    run = ResearchRunState.start("帮我看 MU 最近为什么大跌？")
+    source = Source(
+        id="src_quality",
+        kind="tool_result",
+        name="data quality checks",
+        fetched_at="2026-06-10T00:00:00+00:00",
+        tool_name="research.data_quality_check",
+    )
+    fact = Fact(
+        id="fact_history_insufficient",
+        text="Data quality limitation for MU: only 1 valid history close was available; cannot compute a close range or trend.",
+        source_ids=[source.id],
+        observed_at=source.fetched_at,
+        metric="data_quality_history_insufficient",
+        value={"valid_close_count": 1, "required_for_range": 2, "required_for_trend": 3},
+        symbol="MU",
+    )
+    run.sources.append(source)
+    run.facts.append(fact)
+
+    output = render_investment_memo(run)
+
+    assert "历史行情数据不足" in output
+    assert "收盘价区间约为" not in output
+
+
+def test_render_investment_memo_uses_chinese_attribution_labels_and_avoids_dominant_language() -> None:
+    from src.research.models import AttributionCause
+
+    run = ResearchRunState.start("帮我看 MU 最近为什么大跌？")
+    run.attribution_causes = [
+        AttributionCause(
+            label="半导体与存储链条同步回调",
+            level="likely_factor",
+            support_fact_ids=["fact_sector", "fact_peer"],
+            missing_fact_types=[],
+            confidence="medium",
+            rationale="sector and peer coverage is partial but sufficient for a likely factor.",
+            next_checks=["继续核验 SOXX 和 STX 数据"],
+        )
+    ]
+
+    output = render_investment_memo(run)
+
+    assert "归因证据矩阵" in output
+    assert "较可能因素" in output
+    assert "likely_factor" not in output
+    assert "主导" not in output

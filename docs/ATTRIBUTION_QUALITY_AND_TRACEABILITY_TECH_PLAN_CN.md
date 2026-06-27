@@ -501,6 +501,8 @@ payload 示例：
 
 ### Milestone 1：P0 数据可信度 Gate
 
+状态：✅ 已完成 P0 工程切片（2026-06-27）。已验证 focused data-quality tests 16 passed、full pytest 60 passed、fixture case runner 13/13 PASS、ruff changed files passed。
+
 改动范围：
 
 - `src/research/data_quality.py`
@@ -508,8 +510,10 @@ payload 示例：
 - `src/research/memo_renderer.py`
 - `src/research/test_normalizers.py`
 - `src/research/test_memo_renderer.py`
+- `src/research/fact_verifier.py`
+- `src/research/test_data_quality.py`
 
-产出：报告不再出现 `nan`，trace/report 有数据质量 warning，trace path 固定输出。
+产出：报告不再出现 `nan`；history 有效点不足会降级；quote change mismatch、窗口内公司行动复权口径不明、异常价格 provenance 会进入 data-quality facts；trace/report 有数据质量 warning，trace path 固定输出。
 
 ### Milestone 2：P2 措辞降级 MVP
 

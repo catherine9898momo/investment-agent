@@ -11,6 +11,12 @@ _METRIC_TO_FACT_TYPE = {
     "unknown_news": "news_events",
     "corporate_actions": "corporate_actions",
     "investment_preferences": "user_preferences",
+    "sector_move": "sector_move",
+    "peer_moves": "peer_moves",
+    "fundamentals": "fundamentals",
+    "sec_company_facts": "sec_filings",
+    "stock_search": "market_universe",
+    "market_list": "market_universe",
 }
 
 
@@ -62,10 +68,10 @@ def build_verified_fact_table(facts: list[Fact], attribution_plan: AttributionPl
 def _fact_type_for(fact: Fact) -> str | None:
     if fact.metric in _METRIC_TO_FACT_TYPE:
         return _METRIC_TO_FACT_TYPE[fact.metric or ""]
-    if fact.metric and fact.metric.startswith(("failure_", "missing_", "stale_", "unknown_", "conflicting_")):
+    if fact.metric and fact.metric.startswith(("failure_", "missing_", "stale_", "unknown_", "conflicting_", "data_quality_", "price_provenance_")):
         return fact.metric
     return None
 
 
 def _is_limited_fact(fact: Fact) -> bool:
-    return bool(fact.metric and fact.metric.startswith(("failure_", "missing_", "stale_", "unknown_", "conflicting_")))
+    return bool(fact.metric and fact.metric.startswith(("failure_", "missing_", "stale_", "unknown_", "conflicting_", "data_quality_", "price_provenance_")))

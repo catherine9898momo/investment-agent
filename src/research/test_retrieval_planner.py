@@ -67,7 +67,8 @@ def test_price_only_causal_issue_plans_sector_peer_and_news_tasks() -> None:
     assert plan.issue_count == 1
     assert {"sector_move", "peer_moves", "news_events"}.issubset(tasks_by_type)
     assert tasks_by_type["sector_move"].symbols == ["QQQ", "SMH", "SOXX"]
-    assert tasks_by_type["peer_moves"].symbols == ["NVDA", "AMD", "AVGO"]
+    assert {"NVDA", "AMD", "AVGO"}.issubset(set(tasks_by_type["peer_moves"].symbols))
+    assert {"WDC", "STX", "SNDK"}.issubset(set(tasks_by_type["peer_moves"].symbols))
     assert tasks_by_type["news_events"].symbols == ["MU"]
     assert tasks_by_type["sector_move"].candidate_tools == ["finance.get_price_history"]
     assert run.retrieval_need_plan is plan

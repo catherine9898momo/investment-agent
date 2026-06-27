@@ -28,3 +28,18 @@ def test_verified_fact_table_records_missing_attribution_needs() -> None:
     assert verified[0].fact_type == "price_move"
     assert "sector_move" in {item.fact_type for item in missing}
     assert "peer_moves" in {item.fact_type for item in missing}
+
+
+def test_fact_verifier_maps_sector_and_peer_moves() -> None:
+    from src.research.fact_verifier import build_verified_fact_table
+    from src.research.models import Fact
+
+    facts = [
+        Fact("fact_sector", "sector moved lower", ["src"], "2026-06-27T00:00:00+00:00", metric="sector_move", value={"success_count": 2}),
+        Fact("fact_peer", "peers moved lower", ["src"], "2026-06-27T00:00:00+00:00", metric="peer_moves", value={"success_count": 2}),
+    ]
+
+    verified, missing = build_verified_fact_table(facts, None)
+
+    assert [fact.fact_type for fact in verified] == ["sector_move", "peer_moves"]
+    assert missing == []

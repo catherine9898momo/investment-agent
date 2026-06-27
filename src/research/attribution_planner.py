@@ -2,14 +2,8 @@
 
 from __future__ import annotations
 
-from src.research.models import AttributionNeed, AttributionPlan, IntentRoute, ResolvedEntity, TimeWindow
-
-_SECTOR_PEERS = {
-    "MU": ["NVDA", "AMD", "AVGO"],
-    "NVDA": ["AMD", "AVGO", "MU"],
-    "AMD": ["NVDA", "AVGO", "MU"],
-}
-_DEFAULT_INDEXES = ["QQQ", "SMH", "SOXX"]
+from src.research.models import AttributionNeed, AttributionPlan, IntentRoute, PeerUniverseItem, ResolvedEntity, TimeWindow
+from src.research.peer_resolver import resolve_sector_peer_set
 
 
 def build_attribution_plan(route: IntentRoute, entity: ResolvedEntity, time_window: TimeWindow, user_query: str) -> AttributionPlan:
@@ -38,11 +32,14 @@ def build_attribution_plan(route: IntentRoute, entity: ResolvedEntity, time_wind
             AttributionNeed("earnings_or_guidance", "核验财报、指引或重要产业链公司消息是否影响预期。", required=False),
             AttributionNeed("analyst_actions", "核验评级或目标价变化。", required=False),
         ])
+    peer_set = resolve_sector_peer_set(entity) if question_type in {"price_drop", "price_rise"} else None
     return AttributionPlan(
         question_type=question_type,
         needs=needs,
-        peer_symbols=_SECTOR_PEERS.get(entity.symbol, []),
-        index_symbols=_DEFAULT_INDEXES if question_type in {"price_drop", "price_rise"} else [],
+        peer_symbols=[peer.symbol for peer in peer_set.peers] if peer_set else [],
+        index_symbols=[index.symbol for index in peer_set.sector_indexes] if peer_set else [],
+        peer_items=[PeerUniverseItem(peer.symbol, peer.group, peer.label) for peer in peer_set.peers] if peer_set else [],
+        index_items=[PeerUniverseItem(index.symbol, index.group, index.label) for index in peer_set.sector_indexes] if peer_set else [],
     )
 
 
