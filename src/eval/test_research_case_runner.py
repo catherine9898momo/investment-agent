@@ -16,15 +16,15 @@ def test_eval_expected_sections_follow_current_memo_sections() -> None:
 
     expected_case_sections = {section for case in [*BOUNDARY_CASES, *DATA_QUALITY_CASES] for section in case.expected_sections}
     assert expected_case_sections.issubset(rendered_sections)
-    assert {"研究结论", "风险与不确定性", "还需要确认", "数据来源与时效"}.issubset(expected_case_sections)
+    assert {"一句话结论", "还不能确定的部分", "数据来源与时效"}.issubset(expected_case_sections)
 
 
 def test_eval_section_matcher_keeps_legacy_english_compatibility() -> None:
     legacy_output = "## Boundary Statement\n## Freshness Notes\n## Human Confirmation Points"
 
-    assert _section_present("研究结论", legacy_output)
+    assert _section_present("一句话结论", legacy_output)
     assert _section_present("数据来源与时效", legacy_output)
-    assert _section_present("还需要确认", legacy_output)
+    assert _section_present("还不能确定的部分", legacy_output)
 
 
 def test_eval_term_matcher_supports_user_visible_synonyms() -> None:

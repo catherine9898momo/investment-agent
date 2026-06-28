@@ -28,3 +28,18 @@ def test_attribution_plan_uses_configured_peer_resolver_for_mu() -> None:
     assert {"NVDA", "AMD", "AVGO"}.issubset(set(plan.peer_symbols))
     assert {"WDC", "STX", "SNDK"}.issubset(set(plan.peer_symbols))
     assert {"QQQ", "SMH", "SOXX"}.issubset(set(plan.index_symbols))
+
+
+def test_general_attribution_plan_uses_configured_peer_context_for_moutai() -> None:
+    plan = build_attribution_plan(
+        IntentRoute("unknown_research", "用户询问近期表现。"),
+        ResolvedEntity("茅台", "600519.SS", "贵州茅台"),
+        TimeWindow("最近", "2026-06-21", "2026-06-28"),
+        "茅台最近表现怎么样？",
+    )
+
+    keys = {need.key for need in plan.needs}
+    assert plan.question_type == "general"
+    assert {"sector_move", "peer_moves"}.issubset(keys)
+    assert {"000858.SZ", "000568.SZ"}.issubset(set(plan.peer_symbols))
+    assert {"000300.SS", "510300.SS"}.issubset(set(plan.index_symbols))

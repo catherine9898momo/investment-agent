@@ -24,15 +24,19 @@ def build_attribution_plan(route: IntentRoute, entity: ResolvedEntity, time_wind
         AttributionNeed("news_events", "核验该时间窗口内与公司直接相关的新闻事件。"),
         AttributionNeed("corporate_actions", "排除拆股、股息等公司行动造成的价格变化。"),
     ]
-    if question_type in {"price_drop", "price_rise"}:
+    peer_set = resolve_sector_peer_set(entity)
+    include_comparison = question_type in {"price_drop", "price_rise"} or peer_set.confidence != "low"
+    if include_comparison:
+        comparison_required = question_type in {"price_drop", "price_rise"}
         needs.extend([
-            AttributionNeed("sector_move", "核验半导体/所在行业 ETF 或指数是否同步波动。"),
-            AttributionNeed("peer_moves", "核验主要同行是否同步波动，区分个股因素和板块因素。"),
+            AttributionNeed("sector_move", "核验所在行业 ETF 或指数是否同步波动。", required=comparison_required),
+            AttributionNeed("peer_moves", "核验主要同行是否同步波动，区分个股因素和板块因素。", required=comparison_required),
             AttributionNeed("macro_context", "核验 Nasdaq/利率/宏观风险偏好是否构成背景。", required=False),
             AttributionNeed("earnings_or_guidance", "核验财报、指引或重要产业链公司消息是否影响预期。", required=False),
             AttributionNeed("analyst_actions", "核验评级或目标价变化。", required=False),
         ])
-    peer_set = resolve_sector_peer_set(entity) if question_type in {"price_drop", "price_rise"} else None
+    else:
+        peer_set = None
     return AttributionPlan(
         question_type=question_type,
         needs=needs,

@@ -6,15 +6,17 @@ from dataclasses import dataclass
 
 from src.research.data_quality import classify_history_points, finite_closes
 from src.research.models import Claim, Evidence, Fact, ResearchRunState, Source
+from src.research.report_narrative import NarrativeCause, build_report_narrative
 
 
 MEMO_SECTIONS = [
-    "研究结论",
-    "原因排序",
+    "一句话结论",
     "发生了什么",
-    "关键依据",
-    "风险与不确定性",
-    "还需要确认",
+    "最可能的原因",
+    "基本面是否变坏",
+    "公司研究增强",
+    "归因证据矩阵",
+    "还不能确定的部分",
     "数据来源与时效",
 ]
 
@@ -45,37 +47,162 @@ def render_investment_memo(run: ResearchRunState) -> str:
      */
     """
 
-    symbol, company = display_entity(run)
-    title_name = f"{company}（{symbol}）" if company and company != symbol else symbol
+    narrative = build_report_narrative(run)
     sections = [
-        f"# {title_name} 研究简报",
+        f"# {narrative.title}",
         "",
-        "## 研究结论",
-        *executive_summary_lines(run),
+        "## 一句话结论",
+        f"- {narrative.one_line_conclusion}",
+        "- 这不是交易建议；它只是基于已核验证据和缺失证据的研究判断。",
         "",
-        "## 原因排序",
-        *cause_ranking_lines(run),
+        "## 发生了什么",
+        *market_interpretation_lines(run),
+        *news_event_interpretation_lines(narrative),
+        "",
+        "## 最可能的原因",
+        *narrative_cause_lines(narrative.primary_cause, narrative.secondary_causes, run),
+        "",
+        "## 基本面是否变坏",
+        *fundamental_readthrough_lines(narrative),
+        "",
+        "## 公司研究增强",
+        *enhanced_company_lines(run),
         "",
         "## 归因证据矩阵",
         *attribution_matrix_lines(run),
         "",
-        "## 发生了什么",
-        *what_happened_lines(run),
-        "",
-        "## 关键依据",
-        *key_evidence_lines(run),
-        "",
-        "## 风险与不确定性",
-        *risk_and_uncertainty_lines(run),
-        "",
-        "## 还需要确认",
-        *confirmation_lines(run),
+        "## 还不能确定的部分",
+        *uncertainty_lines(run, narrative.remaining_gaps),
         "",
         "## 数据来源与时效",
         *source_summary_lines(run),
     ]
     return "\n".join(sections)
 
+
+def news_event_lines(narrative) -> list[str]:
+    if not narrative.evidence_events:
+        return ["- 新闻事件：当前没有可归类的新闻事件。"]
+    lines = ["- 新闻事件："]
+    for event in narrative.evidence_events[:4]:
+        title = f"；线索：{event.source_titles[0]}" if event.source_titles else ""
+        lines.append(f"  - {event.label}：{event.summary}{title}")
+    return lines
+
+
+def market_interpretation_lines(run: ResearchRunState) -> list[str]:
+    symbol, _ = display_entity(run)
+    quote_change = _quote_change_pct(_fact_by_metric(run, "latest_price"))
+    sector_avg = _average_verified_change(run, "sector_move")
+    peer_avg = _average_verified_change(run, "peer_moves")
+    lines: list[str] = []
+
+    if quote_change is None:
+        lines.append("- 行情解读：本轮缺少可用价格变化，不能判断短期涨跌幅是否显著。")
+    else:
+        parts = [f"{symbol} 自身约{_direction_text(quote_change)} {abs(quote_change):.2f}%"]
+        if sector_avg is not None:
+            parts.append(f"板块/指数平均约{_direction_text(sector_avg)} {abs(sector_avg):.2f}%")
+        if peer_avg is not None:
+            parts.append(f"同行平均约{_direction_text(peer_avg)} {abs(peer_avg):.2f}%")
+        readthrough = _relative_move_readthrough(quote_change, sector_avg, peer_avg)
+        lines.append(f"- 行情解读：{'，'.join(parts)}；{readthrough}")
+
+    position = _history_range_position(run)
+    if position is not None:
+        lines.append(f"- 区间位置：最新收盘价位于近 5 日收盘区间的 {position:.0f}% 分位附近；越接近 0% 越说明价格贴近窗口低位，越接近 100% 越说明仍在窗口高位。")
+    elif _fact_by_metric(run, "five_day_close_range") is not None:
+        lines.append("- 区间位置：历史行情返回不完整，本轮不能稳定计算价格在 5 日区间中的位置。")
+
+    if _has_corporate_actions_fact(run):
+        lines.append("- 口径校验：公司行动数据用于排除拆股/股息等价格口径干扰；当前报告不把它写成下跌主因。")
+    return lines
+
+
+def news_event_interpretation_lines(narrative) -> list[str]:
+    if not narrative.evidence_events:
+        return ["- 事件解读：新闻证据不足，本轮不能用新闻解释价格波动。"]
+    labels = [event.label for event in narrative.evidence_events if event.event_type != "unknown"]
+    if not labels:
+        return ["- 事件解读：新闻标题尚未形成明确主题，不能单独支撑强归因。"]
+    lead = "、".join(dict.fromkeys(labels[:4]))
+    title = next((event.source_titles[0] for event in narrative.evidence_events if event.source_titles), "")
+    suffix = f"代表线索是“{title}”。" if title else ""
+    return [f"- 事件解读：新闻主题集中在{lead}，更像是在解释市场为什么重新定价预期，而不是提供单一硬事实。{suffix}"]
+
+
+def narrative_cause_lines(primary: NarrativeCause, secondary: list[NarrativeCause], run: ResearchRunState) -> list[str]:
+    primary_explanation = _quantified_cause_explanation(run, primary) or primary.explanation
+    lines = [f"1. **{primary.label}**：{primary_explanation}"]
+    for index, cause in enumerate(secondary, start=2):
+        lines.append(f"{index}. **{cause.label}**：{cause.explanation}")
+    return lines
+
+
+def enhanced_company_lines(run: ResearchRunState) -> list[str]:
+    facts_by_type = {fact.fact_type: fact for fact in run.verified_facts}
+    lines: list[str] = []
+    analyst = facts_by_type.get("analyst_actions")
+    earnings = facts_by_type.get("earnings_or_guidance")
+    macro = facts_by_type.get("macro_context")
+    if analyst:
+        lines.append(f"- 分析师动作：{_enhanced_fact_summary(analyst.value)}")
+    if earnings:
+        lines.append(f"- 财报/指引：{_enhanced_fact_summary(earnings.value)}")
+    if macro:
+        lines.append(f"- 宏观背景：{_enhanced_fact_summary(macro.value)}")
+    if not lines:
+        return ["- 本轮未补齐分析师动作、财报/指引和宏观背景；这些属于 enhanced company report 的增强证据，不影响 normal 短期归因。"]
+    return lines
+
+
+def _enhanced_fact_summary(value: object) -> str:
+    if not isinstance(value, dict):
+        return "已有结构化证据，但缺少可展示摘要。"
+    items = [item for item in value.get("items") or [] if isinstance(item, dict)]
+    if not items:
+        return "已有结构化证据，但缺少可展示条目。"
+    details = [str(item.get("detail") or item.get("action") or item.get("metric") or item) for item in items[:2]]
+    return "；".join(details)
+
+
+def _quantified_cause_explanation(run: ResearchRunState, primary: NarrativeCause) -> str | None:
+    if "板块" not in primary.label and "同行" not in primary.label:
+        return None
+    quote_change = _quote_change_pct(_fact_by_metric(run, "latest_price"))
+    sector_avg = _average_verified_change(run, "sector_move")
+    peer_avg = _average_verified_change(run, "peer_moves")
+    if quote_change is None or sector_avg is None or peer_avg is None:
+        return None
+    if quote_change < 0 and sector_avg < 0 and peer_avg < 0:
+        comparison_avg = (abs(sector_avg) + abs(peer_avg)) / 2
+        relative = "MU 跌幅重于对照均值" if abs(quote_change) > comparison_avg else "MU 跌幅轻于对照均值"
+        implication = "行业压力之外，可能还有个股预期重定价在放大波动" if abs(quote_change) > comparison_avg else "更支持市场共振解释，暂不把它写成公司单独利空"
+        return (
+            f"MU、板块/指数和同行都在同一窗口下跌（MU {quote_change:.2f}%，"
+            f"板块/指数均值 {sector_avg:.2f}%，同行均值 {peer_avg:.2f}%）；{relative}，{implication}。"
+        )
+    if quote_change > 0 and sector_avg > 0 and peer_avg > 0:
+        return (
+            f"MU、板块/指数和同行都在同一窗口上涨（MU {quote_change:.2f}%，"
+            f"板块/指数均值 {sector_avg:.2f}%，同行均值 {peer_avg:.2f}%），更像市场共振而不是孤立公司事件。"
+        )
+    return "MU 与板块/同行方向不完全一致，因此只能把板块/同行作为背景，不能写成主导原因。"
+
+
+def fundamental_readthrough_lines(narrative) -> list[str]:
+    if narrative.fundamental_readthrough:
+        return [f"- {narrative.fundamental_readthrough}"]
+    return ["- 当前证据还不能直接判断基本面已经变坏；需要继续核验财报、指引、估值和管理层表述。"]
+
+
+def uncertainty_lines(run: ResearchRunState, remaining_gaps: list[str]) -> list[str]:
+    lines = risk_and_uncertainty_lines(run)
+    for gap in remaining_gaps:
+        if not any(gap in line for line in lines):
+            lines.append(f"- 仍需确认：{gap}")
+    lines.extend(confirmation_lines(run))
+    return lines
 
 def display_entity(run: ResearchRunState) -> tuple[str, str | None]:
     """/** @returns 用户报告里使用的 symbol 和公司名/检索名。 */"""
@@ -264,8 +391,12 @@ def confirmation_lines(run: ResearchRunState) -> list[str]:
     """/** 输出下一步人工确认问题。 */"""
 
     if not run.human_confirmation_points:
-        return ["- 请确认你的研究目标：解释短期下跌、评估中长期 thesis，还是决定是否继续跟踪？"]
-    return [f"- {point}" for point in run.human_confirmation_points]
+        return ["- 请确认：你的研究目标是解释短期下跌、评估中长期 thesis，还是决定是否继续跟踪？"]
+    lines = []
+    for point in run.human_confirmation_points:
+        text = point if "确认" in point else f"请确认：{point}"
+        lines.append(f"- {text}")
+    return lines
 
 
 def source_summary_lines(run: ResearchRunState) -> list[str]:
@@ -363,6 +494,49 @@ def _quote_change_pct(fact: Fact | None) -> float | None:
     if isinstance(value, dict) and isinstance(value.get("change_pct"), (int, float)):
         return float(value["change_pct"])
     return None
+
+
+def _average_verified_change(run: ResearchRunState, fact_type: str) -> float | None:
+    fact = next((item for item in run.verified_facts if item.fact_type == fact_type), None)
+    value = fact.value if fact else None
+    if not isinstance(value, dict):
+        return None
+    changes = [float(item["change_pct"]) for item in value.get("items") or [] if isinstance(item, dict) and isinstance(item.get("change_pct"), (int, float))]
+    if not changes:
+        return None
+    return sum(changes) / len(changes)
+
+
+def _history_range_position(run: ResearchRunState) -> float | None:
+    fact = _fact_by_metric(run, "five_day_close_range")
+    value = fact.value if fact else None
+    if not isinstance(value, dict):
+        return None
+    closes = _finite_closes(value.get("bars") or [])
+    if len(closes) < 2:
+        return None
+    low = min(closes)
+    high = max(closes)
+    if high == low:
+        return None
+    return max(0.0, min(100.0, (closes[-1] - low) / (high - low) * 100))
+
+
+def _direction_text(change: float) -> str:
+    return "上涨" if change > 0 else "下跌" if change < 0 else "持平"
+
+
+def _relative_move_readthrough(quote_change: float, sector_avg: float | None, peer_avg: float | None) -> str:
+    comparisons = [item for item in (sector_avg, peer_avg) if item is not None]
+    if not comparisons:
+        return "缺少板块/同行对照，这个跌幅还不能判断是个股问题还是市场共振"
+    same_direction = all((quote_change < 0 and item < 0) or (quote_change > 0 and item > 0) or item == 0 for item in comparisons)
+    avg_abs = sum(abs(item) for item in comparisons) / len(comparisons)
+    if same_direction and abs(quote_change) > avg_abs * 1.3:
+        return "方向与板块/同行一致，但个股跌幅更重，说明行业压力是背景，个股预期重定价可能放大了波动"
+    if same_direction:
+        return "方向与板块/同行一致，说明本轮更像市场共振，而不是孤立公司事件"
+    return "方向和板块/同行不完全一致，不能把波动简单归因于行业同步"
 
 
 def _quote_line(run: ResearchRunState) -> str:
@@ -596,7 +770,7 @@ def memo_trace_payload(run: ResearchRunState) -> dict[str, object]:
 
     rows = build_evidence_rows(run)
     return {
-        "format": "investment_memo_v2",
+        "format": "investment_memo_v3",
         "sections": MEMO_SECTIONS,
         "evidence_row_count": len(rows),
         "resolved_symbol": run.resolved_entity.symbol if run.resolved_entity else None,

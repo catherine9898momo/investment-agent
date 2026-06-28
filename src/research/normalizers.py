@@ -30,6 +30,9 @@ def normalize_tool_result_bundle(bundle: ToolResultBundle, symbol: str) -> Norma
         normalize_corporate_actions(bundle.corporate_actions, bundle.data_source, symbol),
         normalize_comparison_history(bundle.sector_history, bundle.data_source, symbol, "sector_move", "sector/index moves", "finance.get_history.sector"),
         normalize_comparison_history(bundle.peer_history, bundle.data_source, symbol, "peer_moves", "peer moves", "finance.get_history.peers"),
+        normalize_enhanced_company_evidence(bundle.analyst_actions, bundle.data_source, symbol, "analyst_actions", "analyst actions", "research.get_analyst_actions"),
+        normalize_enhanced_company_evidence(bundle.earnings_guidance, bundle.data_source, symbol, "earnings_or_guidance", "earnings guidance", "research.get_earnings_guidance"),
+        normalize_enhanced_company_evidence(bundle.macro_context, bundle.data_source, symbol, "macro_context", "macro context", "research.get_macro_context"),
     ]
     normalized = _merge(results)
     quality = normalize_data_quality(bundle, symbol)
@@ -162,6 +165,24 @@ def normalize_comparison_history(
         sources=[source],
         facts=[_fact(summary, source, metric=metric, value=_comparison_value(comparison), symbol=symbol)],
     )
+
+def normalize_enhanced_company_evidence(
+    payload: dict[str, Any],
+    data_source: str,
+    symbol: str,
+    metric: str,
+    name: str,
+    tool_name: str,
+) -> NormalizedToolResult:
+    items = payload.get("items") if isinstance(payload, dict) else None
+    if not items:
+        return NormalizedToolResult(sources=[], facts=[])
+    source = _tool_source(data_source, name, tool_name)
+    return NormalizedToolResult(
+        sources=[source],
+        facts=[_fact(summarize_enhanced_company_fact(symbol, payload, metric), source, metric=metric, value=payload, symbol=symbol)],
+    )
+
 
 def normalize_news(news: dict[str, Any], data_source: str, symbol: str) -> NormalizedToolResult:
     source = _tool_source(data_source, "news snapshot", "news.get_news")
@@ -323,6 +344,20 @@ def _comparison_value(comparison: dict[str, Any]) -> dict[str, Any]:
         "failure_count": len(failures),
         "coverage_ratio": len(successes) / len(raw_items) if raw_items else 0.0,
     }
+
+def summarize_enhanced_company_fact(symbol: str, payload: dict[str, Any], metric: str) -> str:
+    labels = {
+        "analyst_actions": "analyst actions",
+        "earnings_or_guidance": "earnings and guidance",
+        "macro_context": "macro context",
+    }
+    items = payload.get("items") or []
+    snippets = []
+    for item in items[:3]:
+        if isinstance(item, dict):
+            snippets.append(str(item.get("detail") or item.get("action") or item.get("metric") or item))
+    return f"{symbol} {labels.get(metric, metric)} snapshot: {'; '.join(snippets)}."
+
 
 def summarize_news_fact(news: dict[str, Any]) -> str:
     items = news.get("items") or []

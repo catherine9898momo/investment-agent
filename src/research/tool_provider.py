@@ -25,6 +25,9 @@ class ToolResultBundle:
     corporate_actions: dict[str, Any]
     sector_history: dict[str, Any] = field(default_factory=dict)
     peer_history: dict[str, Any] = field(default_factory=dict)
+    analyst_actions: dict[str, Any] = field(default_factory=dict)
+    earnings_guidance: dict[str, Any] = field(default_factory=dict)
+    macro_context: dict[str, Any] = field(default_factory=dict)
 
 
 class ToolResultProvider(Protocol):
@@ -60,20 +63,20 @@ class FixtureToolResultProvider:
             preferences=preferences,
             quote={
                 "symbol": symbol,
-                "price": 182.50,
-                "previous_close": 179.30,
-                "change_pct": 1.78,
+                "price": 94.00,
+                "previous_close": 100.00,
+                "change_pct": -6.00,
                 "currency": "USD",
             },
             history={
                 "symbol": symbol,
                 "period": "5d",
                 "bars": [
-                    {"date": "2026-05-26", "close": 176.20},
-                    {"date": "2026-05-27", "close": 178.90},
-                    {"date": "2026-05-28", "close": 181.10},
-                    {"date": "2026-05-29", "close": 179.30},
-                    {"date": "2026-06-01", "close": 182.50},
+                    {"date": "2026-05-26", "close": 100.00},
+                    {"date": "2026-05-27", "close": 98.40},
+                    {"date": "2026-05-28", "close": 96.80},
+                    {"date": "2026-05-29", "close": 95.20},
+                    {"date": "2026-06-01", "close": 94.00},
                 ],
             },
             news={
@@ -107,6 +110,9 @@ class FixtureToolResultProvider:
             },
             sector_history=_fixture_comparison_history(sector_items or [], history_days),
             peer_history=_fixture_comparison_history(peer_items or [], history_days),
+            analyst_actions={},
+            earnings_guidance={},
+            macro_context={},
         )
 
 
@@ -146,6 +152,9 @@ class LiveToolResultProvider:
             corporate_actions=_safe_tool_result("corporate_actions.get_corporate_actions", lambda: _live_corporate_actions(symbol)),
             sector_history=_live_comparison_history(sector_items or [], history_days),
             peer_history=_live_comparison_history(peer_items or [], history_days),
+            analyst_actions={},
+            earnings_guidance={},
+            macro_context={},
         )
 
 

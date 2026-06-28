@@ -37,12 +37,11 @@ def test_render_investment_memo_is_user_readable_and_keeps_debug_ids_out_of_body
     payload = memo_trace_payload(run)
 
     assert "# TSLA 研究简报" in output
-    assert "## 研究结论" in output
-    assert "## 原因排序" in output
+    assert "## 一句话结论" in output
     assert "## 发生了什么" in output
-    assert "## 关键依据" in output
-    assert "## 风险与不确定性" in output
-    assert "## 还需要确认" in output
+    assert "## 最可能的原因" in output
+    assert "## 基本面是否变坏" in output
+    assert "## 还不能确定的部分" in output
     assert "## 数据来源与时效" in output
     assert "Trace 日志：logs/research_traces/test.jsonl" in output
     assert "交易建议" in output
@@ -52,7 +51,7 @@ def test_render_investment_memo_is_user_readable_and_keeps_debug_ids_out_of_body
     assert "## 证据表" not in output
     assert "## 研究计划" not in output
     assert rows[0].claim_id == "claim_research"
-    assert payload["format"] == "investment_memo_v2"
+    assert payload["format"] == "investment_memo_v3"
     assert payload["evidence_row_count"] == 1
 
 
@@ -89,7 +88,7 @@ def test_render_investment_memo_filters_nan_history_close() -> None:
     output = render_investment_memo(run)
 
     assert "nan" not in output.lower()
-    assert "近 2 个有效交易日收盘价区间约为 864.01 到 1079.57，最新收盘价为 1079.57" in output
+    assert "位于近 5 日收盘区间的 100% 分位附近" in output
 
 
 

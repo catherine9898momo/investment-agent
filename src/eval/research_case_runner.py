@@ -18,25 +18,24 @@ from src.research.models import ResearchRunState, to_jsonable
 from src.research.tool_provider import ToolResultBundle
 
 EXPECTED_MEMO_SECTIONS = {
-    "boundary": [section for section in MEMO_SECTIONS if section in {"研究结论", "风险与不确定性", "还需要确认", "数据来源与时效"}],
-    "research": [section for section in MEMO_SECTIONS if section in {"研究结论", "风险与不确定性", "还需要确认", "数据来源与时效"}],
-    "source": [section for section in MEMO_SECTIONS if section in {"研究结论", "关键依据", "数据来源与时效", "还需要确认"}],
+    "boundary": [section for section in MEMO_SECTIONS if section in {"一句话结论", "还不能确定的部分", "数据来源与时效"}],
+    "research": [section for section in MEMO_SECTIONS if section in {"一句话结论", "最可能的原因", "还不能确定的部分", "数据来源与时效"}],
+    "source": [section for section in MEMO_SECTIONS if section in {"一句话结论", "发生了什么", "数据来源与时效"}],
     "attribution": [
         section
         for section in MEMO_SECTIONS
-        if section in {"研究结论", "原因排序", "发生了什么", "关键依据", "风险与不确定性", "还需要确认", "数据来源与时效"}
+        if section in {"一句话结论", "发生了什么", "最可能的原因", "基本面是否变坏", "归因证据矩阵", "还不能确定的部分", "数据来源与时效"}
     ],
-    "unknowns": [section for section in MEMO_SECTIONS if section in {"研究结论", "风险与不确定性", "还需要确认", "数据来源与时效"}],
+    "unknowns": [section for section in MEMO_SECTIONS if section in {"一句话结论", "还不能确定的部分", "数据来源与时效"}],
 }
 
 LEGACY_SECTION_ALIASES = {
-    "研究结论": ("What We Know", "Executive Summary", "Boundary Statement"),
-    "风险与不确定性": ("Risks", "Unknowns / Conflicts"),
-    "还需要确认": ("Human Confirmation Points",),
+    "一句话结论": ("What We Know", "Executive Summary", "Boundary Statement", "研究结论"),
+    "还不能确定的部分": ("Risks", "Unknowns / Conflicts", "Human Confirmation Points", "风险与不确定性", "还需要确认"),
     "数据来源与时效": ("Freshness Notes", "Trace Reference"),
-    "关键依据": ("What We Know", "Trace Reference"),
-    "原因排序": ("Executive Summary", "What We Know"),
     "发生了什么": ("What We Know",),
+    "最可能的原因": ("Executive Summary", "What We Know", "原因排序"),
+    "归因证据矩阵": ("Trace Reference",),
 }
 
 TermExpectation = str | tuple[str, ...]

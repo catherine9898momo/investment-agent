@@ -7,7 +7,8 @@ fixture 只作为离线测试模式；如果 live 依赖或网络不可用，系
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
+from pathlib import Path
+from dataclasses import asdict, replace
 
 from src.research.attribution_evaluator import evaluate_attribution_causes
 from src.research.claim_verifier import filter_synthesis_to_verified_claims, verify_synthesis_claims
@@ -15,6 +16,10 @@ from src.research.context_builder import build_research_context, research_contex
 from src.research.evaluator import evaluate_research_output
 from src.research.fact_verifier import build_verified_fact_table
 from src.research.memo_renderer import memo_trace_payload, render_investment_memo
+from src.research.evidence_tasks import EvidenceTask, EvidenceTaskResult
+from src.research.loop_engine import build_research_run_with_loop_from_bundle, render_loop_comparison
+from src.research.live_enhanced_evidence import extract_analyst_actions, extract_earnings_guidance, extract_macro_context
+from src.research.loop_eval_artifacts import save_loop_eval_artifact
 from src.research.models import ResearchRunState, to_json
 from src.research.normalizers import normalize_tool_result_bundle
 from src.research.query_intake import QueryUnderstanding, understand_query
@@ -260,7 +265,105 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--json", action="store_true", help="打印 run state JSON，而不是 markdown 输出。交互模式中可用 /json 切换。")
     parser.add_argument("--debug", action="store_true", help="额外打印 guardrail 检查明细。交互模式中可用 /debug 切换。")
+    parser.add_argument("--loop", action="store_true", help="启用 Bounded Evidence Repair Loop。默认关闭，保持单轮行为。")
+    parser.add_argument("--max-loops", type=int, default=1, help="最多执行的补证据 iteration 次数。V1 建议为 1。")
+    parser.add_argument("--quality-threshold", choices=["normal"], default="normal", help="Loop 质量阈值。V1 仅支持 normal。")
+    parser.add_argument("--research-depth", choices=["normal", "enhanced"], default="normal", help="研究深度。enhanced 会补公司研究增强证据。")
+    parser.add_argument("--compare-loop", action="store_true", help="启用 loop 时展示 run_0 与 run_1 的质量对比。")
+    parser.add_argument(
+        "--fixture-loop-case",
+        choices=["none", "missing-peer-enhanced"],
+        default="none",
+        help="fixture 专用 loop 验证场景。missing-peer-enhanced 会让初稿缺同行证据，再由 loop 补齐。",
+    )
+    parser.add_argument("--save-loop-eval", action="store_true", help="保存 loop 前后报告、对比和 metrics artifact。")
+    parser.add_argument("--loop-eval-dir", default="artifacts/loop_eval", help="loop eval artifact 输出目录。")
     return parser
+
+
+def _provider_task_executor(provider, understanding: QueryUnderstanding, history_days: int, news_days: int):
+    def execute(tasks: list[EvidenceTask], run: ResearchRunState) -> list[EvidenceTaskResult]:
+        results: list[EvidenceTaskResult] = []
+        for task in tasks:
+            if task.task_type == "fetch_peer_history":
+                bundle = provider.fetch(
+                    understanding.entity.symbol,
+                    understanding.entity.company_query,
+                    history_days,
+                    news_days,
+                    peer_items=understanding.attribution_plan.peer_items,
+                )
+                results.append(EvidenceTaskResult(task.task_type, "completed", "peer_history", bundle.peer_history))
+            elif task.task_type == "fetch_sector_history":
+                bundle = provider.fetch(
+                    understanding.entity.symbol,
+                    understanding.entity.company_query,
+                    history_days,
+                    news_days,
+                    sector_items=understanding.attribution_plan.index_items,
+                )
+                results.append(EvidenceTaskResult(task.task_type, "completed", "sector_history", bundle.sector_history))
+            elif task.task_type == "retry_news_zh":
+                bundle = provider.fetch(
+                    understanding.entity.symbol,
+                    understanding.entity.company_query,
+                    history_days,
+                    news_days,
+                )
+                results.append(EvidenceTaskResult(task.task_type, "completed", "news", bundle.news))
+            elif task.task_type == "fetch_analyst_actions":
+                bundle = provider.fetch(
+                    understanding.entity.symbol,
+                    understanding.entity.company_query,
+                    history_days,
+                    news_days,
+                    sector_items=understanding.attribution_plan.index_items,
+                )
+                payload = _fixture_or_live_analyst_actions(provider.data_source, bundle.news)
+                results.append(EvidenceTaskResult(task.task_type, "completed", "analyst_actions", payload))
+            elif task.task_type == "fetch_earnings_guidance":
+                bundle = provider.fetch(
+                    understanding.entity.symbol,
+                    understanding.entity.company_query,
+                    history_days,
+                    news_days,
+                    sector_items=understanding.attribution_plan.index_items,
+                )
+                payload = _fixture_or_live_earnings_guidance(provider.data_source, bundle.news)
+                results.append(EvidenceTaskResult(task.task_type, "completed", "earnings_guidance", payload))
+            elif task.task_type == "fetch_macro_context":
+                bundle = provider.fetch(
+                    understanding.entity.symbol,
+                    understanding.entity.company_query,
+                    history_days,
+                    news_days,
+                    sector_items=understanding.attribution_plan.index_items,
+                )
+                payload = _fixture_or_live_macro_context(provider.data_source, bundle.sector_history)
+                results.append(EvidenceTaskResult(task.task_type, "completed", "macro_context", payload))
+            elif task.task_type == "rerender_with_downgrade":
+                results.append(EvidenceTaskResult(task.task_type, "skipped"))
+        return results
+
+    return execute
+
+
+def _fixture_or_live_analyst_actions(data_source: str, news: dict | None = None) -> dict:
+    if data_source != "fixture":
+        return extract_analyst_actions(news or {})
+    return {"items": [{"firm": "Fixture Research", "action": "target_raised", "detail": "目标价上调但提示高预期波动"}]}
+
+
+def _fixture_or_live_earnings_guidance(data_source: str, news: dict | None = None) -> dict:
+    if data_source != "fixture":
+        return extract_earnings_guidance(news or {})
+    return {"items": [{"metric": "revenue_guidance", "detail": "收入指引仍强，但市场担心预期过满"}]}
+
+
+def _fixture_or_live_macro_context(data_source: str, sector_history: dict | None = None) -> dict:
+    if data_source != "fixture":
+        return extract_macro_context(sector_history or {})
+    return {"items": [{"metric": "nasdaq_risk", "change_pct": -2.0, "detail": "科技风险偏好回落"}]}
 
 
 def run_one_query(args: argparse.Namespace, query: str, as_json: bool | None = None, debug: bool | None = None) -> ResearchRunState:
@@ -275,15 +378,46 @@ def run_one_query(args: argparse.Namespace, query: str, as_json: bool | None = N
      */
     """
 
-    run = build_research_run(
-        query,
-        synthesizer_name=args.synthesizer,
-        data_source=args.data_source,
-        symbol=args.symbol,
-        company_query=args.company_query,
-        history_days=args.history_days,
-        news_days=args.news_days,
-    )
+    if getattr(args, "loop", False):
+        understanding = understand_query(query, symbol_override=args.symbol, company_query_override=args.company_query)
+        provider = make_tool_provider(args.data_source)
+        bundle = provider.fetch(
+            understanding.entity.symbol,
+            understanding.entity.company_query,
+            args.history_days,
+            args.news_days,
+            sector_items=understanding.attribution_plan.index_items,
+            peer_items=understanding.attribution_plan.peer_items,
+        )
+        if args.data_source == "fixture" and args.fixture_loop_case == "missing-peer-enhanced":
+            bundle = replace(bundle, peer_history={})
+        loop_result = build_research_run_with_loop_from_bundle(
+            query,
+            bundle,
+            understanding=understanding,
+            task_executor=_provider_task_executor(provider, understanding, args.history_days, args.news_days),
+            synthesizer_name=args.synthesizer,
+            max_loops=args.max_loops,
+            quality_threshold=args.quality_threshold,
+            research_depth=args.research_depth,
+        )
+        run = loop_result.final_run
+        if args.compare_loop and not args.json:
+            run.final_output = (run.final_output or "").rstrip() + "\n" + render_loop_comparison(loop_result)
+        if args.save_loop_eval:
+            artifact_dir = save_loop_eval_artifact(loop_result, Path(args.loop_eval_dir), query=query, data_source=args.data_source)
+            if not args.json:
+                run.final_output = (run.final_output or "").rstrip() + f"\n\nLoop Eval Artifact: {artifact_dir}"
+    else:
+        run = build_research_run(
+            query,
+            synthesizer_name=args.synthesizer,
+            data_source=args.data_source,
+            symbol=args.symbol,
+            company_query=args.company_query,
+            history_days=args.history_days,
+            news_days=args.news_days,
+        )
     print_run_result(run, args.json if as_json is None else as_json, args.debug if debug is None else debug)
     return run
 

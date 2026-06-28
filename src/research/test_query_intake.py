@@ -7,6 +7,12 @@ def test_resolves_micron_aliases_to_mu() -> None:
     assert resolve_entity("MU 最近为什么跌").company_query == "Micron"
 
 
+def test_resolves_moutai_aliases_to_a_share_symbol() -> None:
+    assert resolve_entity("茅台最近表现怎么样？").symbol == "600519.SS"
+    assert resolve_entity("贵州茅台最近为什么跌？").company_query == "贵州茅台"
+    assert resolve_entity("600519.SS 最近表现怎么样？").company_name == "贵州茅台股份有限公司"
+
+
 def test_routes_news_and_valuation_queries() -> None:
     news = understand_query("腾讯为什么跌，最近新闻是什么？")
     assert news.entity.symbol == "0700.HK"
