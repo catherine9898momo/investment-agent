@@ -40,3 +40,5 @@ library/ocr/*
 
 # 本地评估与 demo 产物
 artifacts/
+
+.codegraph/
